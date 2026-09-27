@@ -3,6 +3,8 @@
 
      0. CONFIG        下面那个配置对象，**你唯一需要改的地方**
      1. 顶栏          吃豆人 + 六栏目 + 语言药丸 + 开关灯（博客 header 的克隆）
+                      窄屏（≤900px）六栏目收进汉堡，点开是全屏菜单
+     1d. 颜文字模式   药丸第三段，句末标点后随机插一个颜文字（纯显示效果）
      2. 粒子壁纸      和博客 #wm-particle 同款，一个 fixed 的 iframe
      3. 源码入口      侧栏那行 `version: x.y.z` 改指本主题仓库（AGPL §13）
      4. 主题两态化    Ech0 原生是三态循环，这里接管成干净的明暗两态，
@@ -53,6 +55,14 @@
       { code: 'zh-CN', label: '中', name: '简体中文' },
       { code: 'en-US', label: 'EN', name: 'English' }
     ],
+
+    // 语言药丸的第三段：颜文字。跟博客那边一样 —— **它不是一种语言**，
+    // 是在当前语言上叠的一层纯显示效果：句末标点后面随机插一个颜文字。
+    // 不改 Ech0 的语言，也不碰任何数据，只动看得见的那层文本。
+    //   · 点它 = 开 / 关，状态存在 localStorage.kaomoji（'1' / '0'，与博客同款）
+    //   · 点「中」或「EN」会顺手把它关掉（博客也是这个行为）
+    // 不想要这一段就把 enabled 改成 false。
+    kaomoji: { enabled: true, label: '(´・ω・`)' },
 
     // 侧栏底部那行 `version: x.y.z` 换成指向**你自己那份主题仓库**的
     // 源码入口（图标 + SOURCE）。位置和元素都不动，只换 href 和内容。
@@ -134,6 +144,20 @@
     var right = el('div', 'bt-right')
     mountLang(right)
     mountTheme(right)
+
+    // 汉堡键。宽屏下 CSS 里是 display:none，只是把节点先放好。
+    if (CONFIG.nav && CONFIG.nav.length) {
+      var burger = el('button', 'bt-burger')
+      burger.type = 'button'
+      burger.setAttribute('aria-label', '菜单 / menu')
+      burger.setAttribute('aria-expanded', 'false')
+      for (var k = 0; k < 3; k++) burger.appendChild(el('span'))
+      burger.addEventListener('click', function () {
+        setMenu(!isMenuOpen())
+      })
+      right.appendChild(burger)
+    }
+
     if (right.childNodes.length) nav.appendChild(right)
 
     // 放在 <body> 的第一个子节点。CSS 里是 position:sticky，所以它既常驻
@@ -142,12 +166,49 @@
     syncNav()
   }
 
+  /* ---------- 1a. 窄屏的全屏菜单 ----------
+     跟博客的 #mobile-menu 是同一套东西：fixed 铺满一屏、居中竖排、
+     点条目就关。区别只在于博客拿 <label for="menu-toggle"> + :checked
+     做纯 CSS 开关（它没有 JS 环境），我们是注入的脚本，直接用 class。 */
+  function mountMenu() {
+    if (document.getElementById('bt-menu')) return
+    if (!CONFIG.nav || !CONFIG.nav.length) return
+    if (!document.body) return
+    var m = el('div', null)
+    m.id = 'bt-menu'
+    CONFIG.nav.forEach(function (item) {
+      var a = el('a', null, item.label)
+      a.href = item.href
+      // 站内跳转是 SPA，不刷新页面 —— 菜单得自己收起来，
+      // 否则覆盖层会一直压在刚换出来的那一页上面。
+      a.addEventListener('click', function () { setMenu(false) })
+      m.appendChild(a)
+    })
+    document.body.appendChild(m)
+    syncNav()
+  }
+
+  function isMenuOpen() {
+    var m = document.getElementById('bt-menu')
+    return !!(m && m.classList.contains('bt-open'))
+  }
+
+  function setMenu(open) {
+    var m = document.getElementById('bt-menu')
+    var b = document.querySelector('#bt-nav .bt-burger')
+    if (!m || !b) return
+    m.classList.toggle('bt-open', open)
+    b.classList.toggle('bt-open', open)
+    b.setAttribute('aria-expanded', open ? 'true' : 'false')
+  }
+
   // SPA 站内跳转不重新加载，高亮得自己跟着走。
   function syncNav() {
     var nav = document.getElementById('bt-nav')
     if (!nav) return
     var here = norm(location.pathname)
-    var links = nav.querySelectorAll('.bt-links a')
+    // 顶栏里那六个和全屏菜单里那六个是同一批链接，两边都要跟着高亮。
+    var links = document.querySelectorAll('#bt-nav .bt-links a, #bt-menu a')
     for (var i = 0; i < links.length; i++) {
       if (isCurrent(links[i].getAttribute('href'), here)) {
         links[i].setAttribute('aria-current', 'page')
@@ -226,20 +287,38 @@
       b.type = 'button'
       b.setAttribute('data-locale', loc.code)
       b.title = loc.name
-      b.addEventListener('click', function () { switchLocale(loc) })
+      b.addEventListener('click', function () {
+        // 博客那边点「中」/「EN」也会把颜文字关掉，这里保持一致。
+        setKao(false)
+        switchLocale(loc)
+      })
       wrap.appendChild(b)
     })
+    // 第三段：颜文字。注意它**没有 data-locale** —— 它不是一种语言，
+    // 是叠在当前语言上的显示效果（见下面 1d 那段）。
+    if (CONFIG.kaomoji && CONFIG.kaomoji.enabled) {
+      var k = el('button', 'bt-kao', CONFIG.kaomoji.label)
+      k.type = 'button'
+      k.title = '颜文字 / Kaomoji'
+      k.addEventListener('click', function () { setKao(!kaoOn()) })
+      wrap.appendChild(k)
+    }
     box.appendChild(wrap)
     paintLang()
   }
 
   function paintLang() {
     var cur = storedLocale()
+    var on = kaoOn()
     var bs = document.querySelectorAll('#bt-nav .bt-lang button')
     for (var i = 0; i < bs.length; i++) {
-      var on = bs[i].getAttribute('data-locale') === cur ? 'true' : 'false'
-      if (bs[i].getAttribute('aria-pressed') !== on) {
-        bs[i].setAttribute('aria-pressed', on)
+      // 颜文字那段没有 data-locale：它按下 = 颜文字开着；
+      // 语言那两段在颜文字开着时**都不亮**（任何时刻只有一个亮着）。
+      var code = bs[i].getAttribute('data-locale')
+      var pressed = code ? (!on && code === cur) : on
+      var v = pressed ? 'true' : 'false'
+      if (bs[i].getAttribute('aria-pressed') !== v) {
+        bs[i].setAttribute('aria-pressed', v)
       }
     }
   }
@@ -276,6 +355,147 @@
   function fallbackLocale(code) {
     write('locale', code)
     location.reload()
+  }
+
+  /* ---------- 1d. 颜文字模式 ----------
+     效果抄自博客 src/layouts/Base.astro 里那段 _applyKao()：**不是一种语言**，
+     是在当前语言上叠的一层纯显示效果 —— 每个句末标点后面随机插一个颜文字。
+     （博客的 i18n 注释里写得很清楚：「颜文字模式不是独立语言，是在当前语言上
+       叠加的显示效果」。）这里只动 DOM 里的文本节点，不改 Ech0 的语言，
+     也不碰任何数据。
+
+     ⚠️ 跟博客那段有**两个必须不同的地方**，都是 Ech0 是 SPA 导致的：
+
+     1. **得盯着 DOM。** 博客是静态站，DOMContentLoaded 时跑一遍就完了；
+        Ech0 往下滚会不断渲染出新的 echo，那些文本节点当时还不存在。
+        所以多挂了一个 MutationObserver 给新来的补刀 —— 见 kaoWatch()。
+
+     2. **观察器和写入必须互斥。** 我们自己改文本也会触发 characterData，
+        不隔开就是自己触发自己、无限循环。kaoApply() 的做法是
+        「先断开 → 写 → 再挂上」。副产品是：观察器**只要还挂着**，
+        看见的变更就**一定不是我们写的**，可以放心当成「Vue 重渲染了」。
+
+     ⚠️ 每个节点只插一次（__btKaoDone）。不然后台每来一条新 echo，
+        kaoApply 会重走整棵树，把已经插好的颜文字全部换掉 —— 随机值一变，
+        满屏颜文字当场跳一下，很难看。 */
+  var KAO = [
+    '(´・ω・`)', '(◕‿◕)', '(｡･ω･｡)', '(≧∇≦)', '(๑•̀ㅂ•́)و✧', '(◍•ᴗ•◍)',
+    '(╯°□°）╯︵┻━┻', '┐(´д`)┌', '(￣▽￣)ノ', '(✿◠‿◠)', '(´▽`)ﾉ', '(・∀・)',
+    '(◕ᴗ◕✿)', '(｡•̀ᴗ-)✧', '(◔‿◔)', '(─‿‿─)', '(人◕ω◕)', '(づ｡◕‿‿◕｡)づ',
+    '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧'
+  ]
+  // 逐字照抄博客那行：中日文句末标点 + 英文的 . ! ? ;
+  var KAO_MARK = /([。！？；…\.\!\?\;])/g
+
+  // ⚠️ 一整块「没有空格、又全是 ASCII」的文本 = 标识符，不是句子：
+  //    域名（bingtao.xyz）、URL、文件名、版本号。它们里面那个 `.` 不是句号，
+  //    插进去会把 bingtao.xyz 劈成 `bingtao. (・∀・) xyz` —— 链接卡片上真踩过。
+  //    中文正文不会命中：中文句号是全角「。」，而且中文本身不是 ASCII。
+  //    英文整句（`Hello, world.`）有空格，也照插不误。
+  var KAO_TOKEN = /^[\x21-\x7e]+$/
+
+  // 不插的地方：我们自己的顶栏和菜单、Ech0 自己的头部和侧栏、按钮和输入框、
+  // 脚本样式和图标。Ech0 的浮层（语言菜单、搜索面板）也排掉。
+  // 博客那份黑名单里还有 chat / 桌宠几项，这边没有对应的东西。
+  var KAO_SKIP = '#bt-nav, #bt-menu, script, style, noscript, svg, input, ' +
+    'textarea, select, button, .locale-toggle, .home-header, .home-aside, ' +
+    '.bt-native, .v-popper__popper'
+
+  // 这个 key 跟博客是同一个、取值也同一套（'1' / '0'）。
+  // ⚠️ 不能走上面那对 read/write —— 它们会 JSON.stringify，存进去的是带引号的
+  //    `"1"`，跟博客对不上。
+  function readRaw(k) {
+    try { return localStorage.getItem(k) } catch (e) { return null }
+  }
+  function writeRaw(k, v) {
+    try { localStorage.setItem(k, v) } catch (e) {}
+  }
+
+  function kaoOn() { return readRaw('kaomoji') === '1' }
+
+  function kaoMark(t) {
+    return t.replace(KAO_MARK, function (m) {
+      return m + ' ' + KAO[Math.floor(Math.random() * KAO.length)] + ' '
+    })
+  }
+
+  function kaoWalk(root, fn) {
+    if (!root || typeof document.createTreeWalker !== 'function') return
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false)
+    var n
+    while ((n = w.nextNode())) {
+      var p = n.parentElement
+      if (!p || p.closest(KAO_SKIP)) continue
+      if (!n.nodeValue || !n.nodeValue.trim()) continue
+      if (KAO_TOKEN.test(n.nodeValue.trim())) continue
+      fn(n)
+    }
+  }
+
+  var kaoObs = null
+
+  function kaoApply(on) {
+    kaoStop()                       // 先摘掉观察器，免得看见自己写的（见上面 ⚠️2）
+    try {
+      kaoWalk(document.body, function (n) {
+        if (on) {
+          // 第一次碰它就把原文留底。之后每次插都从原文重来 ——
+          // 直接往插过的文本上再插会滚雪球。
+          if (n.__btKao == null) { n.__btKao = n.nodeValue; n.__btKaoDone = false }
+          if (n.__btKaoDone) return
+          n.nodeValue = kaoMark(n.__btKao)
+          n.__btKaoDone = true
+        } else if (n.__btKao != null) {
+          n.nodeValue = n.__btKao   // 还原
+          n.__btKao = null
+          n.__btKaoDone = false
+        }
+      })
+    } finally {
+      if (on) kaoWatch()
+    }
+    paintLang()
+  }
+
+  function kaoWatch() {
+    if (kaoObs || typeof MutationObserver === 'undefined' || !document.body) return
+    kaoObs = new MutationObserver(function (muts) {
+      if (!kaoOn()) return
+      var dirty = false
+      for (var i = 0; i < muts.length; i++) {
+        var m = muts[i]
+        if (m.type === 'characterData') {
+          // Vue 把这个节点的文字换掉了 —— 留底作废，以新文字为准重插。
+          m.target.__btKao = null
+          m.target.__btKaoDone = false
+          dirty = true
+        } else if (m.addedNodes && m.addedNodes.length) {
+          dirty = true
+        }
+      }
+      if (dirty) kaoQueue()
+    })
+    kaoObs.observe(document.body, { childList: true, subtree: true, characterData: true })
+  }
+
+  function kaoStop() {
+    if (kaoObs) { kaoObs.disconnect(); kaoObs = null }
+  }
+
+  // 一帧里来一堆变动只补一次。铺开滚到底会连续插进来几十条 echo。
+  var kaoQueued = false
+  function kaoQueue() {
+    if (kaoQueued) return
+    kaoQueued = true
+    requestAnimationFrame(function () {
+      kaoQueued = false
+      kaoApply(true)
+    })
+  }
+
+  function setKao(on) {
+    writeRaw('kaomoji', on ? '1' : '0')
+    kaoApply(on)
   }
 
   /* ---------- 2. 粒子壁纸 ---------- */
@@ -442,11 +662,25 @@
   if (read('themeMode') === null) apply(CONFIG.defaultTheme)
 
   mountNav()
+  mountMenu()
   mountParticle()
   mountSource()
   hideNativeControls()
   watchDom()
   patchHistory()
+
+  // 颜文字是记在 localStorage 里的，开着就直接生效。
+  // 此刻 feed 可能还没渲染出来 —— 没关系，kaoWatch() 会盯住后到的。
+  if (kaoOn()) kaoApply(true)
+
+  // 全屏菜单的两个出口：Esc，以及转回宽屏（菜单只在窄屏能开，
+  // 但竖屏横过来就可能越过 900px，不收起来会一直盖着）。
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isMenuOpen()) setMenu(false)
+  })
+  window.addEventListener('resize', function () {
+    if (window.innerWidth > 900 && isMenuOpen()) setMenu(false)
+  })
 
   // 刚注入时头部可能还没渲染完，Vue 随后那一 patch 会把 label 改回它自己的，
   // 所以多点几次

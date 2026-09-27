@@ -9,8 +9,8 @@
 > [Ech0](https://github.com/lin-snow/Ech0), a self-hosted single-user microblog
 > written in Go + Vue. It injects a flat paper-and-ink skin plus a clone of the
 > companion blog's header (pacman → home, centered nav, language pill, light
-> switch) through Ech0's built-in *Custom CSS / Custom JS* settings — no source
-> changes, no rebuild. It also ships a self-contained particle wallpaper page,
+> switch → a hamburger + full-screen menu below 900px) through Ech0's built-in
+> *Custom CSS / Custom JS* settings — no source changes, no rebuild. It also ships a self-contained particle wallpaper page,
 > optional nginx/Cloudflare-Worker snippets that restyle the pre-Vue loading
 > screen, and a hardened systemd unit. Licensed AGPL-3.0-or-later, matching
 > upstream.
@@ -174,6 +174,11 @@ var CONFIG = {
     { code: 'en-US', label: 'EN', name: 'English' }
   ],
 
+  // 药丸的第三段：颜文字。**它不是一种语言**，是在当前语言上叠的一层
+  // 纯显示效果 —— 句末标点后面随机插一个颜文字。点它 = 开 / 关，
+  // 状态存在 localStorage.kaomoji（'1' / '0'）。不要这段就 enabled: false。
+  kaomoji: { enabled: true, label: '(´・ω・`)' },
+
   // 侧栏底部那行 `version: x.y.z` 改成指向你自己那份主题仓库的源码入口。
   // 留空则整行藏掉（也就是不启用）。见「合规」。
   sourceUrl: '',
@@ -311,6 +316,42 @@ Ech0 的前端是 UnoCSS 原子类。翻它编译出来的主 CSS（v5.7.0 那�
 4. **两栏的层内关系照抄博客。** 博客是 `#wm-particle(-1)` / `.wm-header(100)`，
    这里保持一致。
 
+**窄屏（≤900px）：六栏目收进汉堡。** 900px 这个断点是**跟 Ech0 对齐的** ——
+它自己也正是在这个宽度把桌面侧栏 `.home-aside` 换成移动版那一行。窄屏下
+`.bt-links` 整个 `display:none`，右边多出一个 ☰，点开是一层跟博客
+`#mobile-menu` 同款的全屏菜单（居中竖排、点条目就关、Esc 也关）。
+
+这里有个**很容易写反**的地方：菜单的 `z-index` 必须**比顶栏小**
+（`#bt-menu` 90 / `#bt-nav` 100），顶栏才会浮在菜单上面 —— 那个已经收成 ✕
+的汉堡要一直露着、一直可点。反过来（菜单盖住顶栏）的话，手机上既看不见 ✕、
+也没法再点它关掉，只能点某个链接跳走。博客的 `.wm-header(100)` /
+`#mobile-menu(90)` 就是这个关系。
+
+### 颜文字模式
+
+药丸第三段，代码在 `custom.js` 第 1d 节。它**不是一种语言**，是叠在当前语言上
+的一层纯显示效果：句末标点（`。！？；…` 和 ASCII 的 `. ! ? ;`）后面随机插一个
+颜文字。状态存在 `localStorage.kaomoji`（`'1'` / `'0'`），点「中」/「EN」会顺手
+把它关掉。**开关只是改看得见的文本，不碰 Ech0 的任何数据。**
+
+同一套东西移植到 SPA 上，有三处必须不一样（都写在代码注释里）：
+
+1. **必须盯 DOM。** 博客是静态站，脚本跑完页面就定型了；Ech0 是 SPA，
+   滚动、切视图、发新 echo 都会往 DOM 里塞新节点。所以这里挂了个
+   `MutationObserver`，后到的节点同样会被插上。
+
+2. **观察器和写入必须互斥。** 每次改写之前先 `disconnect()`、写完再连上。
+   顺带的好处是：连接期间收到的任何变动，都**不是我们自己写的**，可以放心
+   当成「该重扫了」。
+
+3. **每个节点只标一次**（`__btKaoDone`），原文留底在 `__btKao`。否则新来一条
+   echo 触发全页重扫，满屏颜文字会当场重掷一遍，看着像在跳。
+
+另外有一条**不能省**的排除规则：整块「没有空格、又全是 ASCII」的文本不插 ——
+那是域名 / URL / 文件名 / 版本号（`bingtao.xyz`），里面的 `.` 不是句号，
+插进去会把它劈成 `bingtao. (・∀・) xyz`，链接卡片上真的踩过。中文正文不受
+影响（中文句号是全角「。」，而且中文不是 ASCII）。
+
 ### 主题为什么被「接管」
 
 Ech0 原生是 **三态循环**：`light → sunny → dark → light`。而这里只有明暗两套
@@ -377,7 +418,12 @@ Ech0 读到的就是我们设的那套。
 - **没有 `/en/` 路径。** Ech0 没有基于路径的语言路由，见[关于语言](#关于语言)。
   能给你的是「当场切换」和 `?lang=en` 两种。
 - **原生语言菜单被藏起来了。** 语言真要加到四种以上，那个药丸会变宽，
-  可能得顺手调 `tail.css` 第 9 节的 `.bt-lang` 尺寸。
+  可能得顺手调 `tail.css` 第 9 节的 `.bt-lang` 尺寸。窄屏下药丸仍然留在顶栏里
+  （博客的做法是收进汉堡菜单），要改成那样就是把 `mountLang` 那段挪进 `#bt-menu`。
+- **颜文字是纯显示效果，不写进数据。** 换台设备、换个浏览器就没开 ——
+  状态在各自的 `localStorage` 里，不上服务端。另外它靠的是「句末标点」这个
+  启发式，纯 ASCII 的整块文本（域名、URL、文件名）会被跳过，见
+  [颜文字模式](#颜文字模式)。
 - **粒子壁纸是 iframe，不是 canvas。** 好处是跟主站完全隔离、零耦合；
   代价是每个页面多一个跨源请求，以及上面说的那个 `z-index` 坑。
   不想要就配 `particleUrl: ''`。

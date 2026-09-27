@@ -198,7 +198,8 @@
    这一条顶栏是 mome 的站内导航，长得和博客的 .wm-header 一样：
      左：吃豆人 → 回博客首页
      中：六栏目（绝对居中，同博客的 absolute left-1/2 -translate-x-1/2）
-     右：语言药丸 中/EN + 开灯关灯
+     右：语言药丸 中/EN/颜文字 + 开灯关灯
+   窄屏（≤900px）栏目收进汉堡，见下面那段。
 
    元素全部由 custom.js 注入（见那里的 CONFIG.nav / CONFIG.home /
    CONFIG.themeIcons / CONFIG.locales）。
@@ -343,27 +344,88 @@
   height: 20px;
 }
 
-/* 窄屏：绝对居中会让栏目压到吃豆人和药丸上，这里退回普通流。
-   栏目换到第二行居中，顶栏跟着长高（sticky 不受影响）。 */
+/* 窄屏：六栏目收进汉堡，点开是一层跟博客 #mobile-menu 同款的全屏菜单。
+   断点 900px 是**跟 Ech0 自己对齐的** —— 它也是在这个宽度把桌面侧栏
+   `.home-aside` 换成移动版 `.home-aside--mobile` 那一行的。
+   ⚠️ 这里以前是把栏目折到第二行硬排。手机上会折成两三行，顶栏高高一条，
+      用户点名不要（"我手机打开 mome 页面没有侧边栏，却有 pc 上的置顶栏目
+      全部显示，显然我不需要"）。**别改回折行。** */
+#bt-nav .bt-burger { display: none; }
+
 @media (max-width: 900px) {
-  #bt-nav {
-    height: auto;
-    min-height: 56px;
-    flex-wrap: wrap;
-    padding: 0.5rem 0.9rem;
-    row-gap: 0.45rem;
-  }
-  #bt-nav .bt-links {
-    position: static;
-    transform: none;
-    order: 3;
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 1rem;
-  }
-  #bt-nav .bt-right { gap: 0.6rem; }
+  #bt-nav .bt-links { display: none; }
+  #bt-nav .bt-burger { display: block; }
 }
+
+/* 三条线。尺寸和缓动照抄博客 .spacex-hamburger：40×40 的点击区，
+   线长 30 / 粗 1.5px / 绝对定位在 10、19、28 三条基线上。 */
+#bt-nav .bt-burger {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-right: -10px;      /* 40 的点击区比视觉宽，往右吃掉一点留白 */
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+#bt-nav .bt-burger span {
+  display: block;
+  position: absolute;
+  left: 5px;
+  width: 30px;
+  height: 1.5px;
+  background: var(--color-text-primary);
+  opacity: 1;
+  transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+#bt-nav .bt-burger span:nth-child(1) { top: 10px; }
+#bt-nav .bt-burger span:nth-child(2) { top: 19px; }
+#bt-nav .bt-burger span:nth-child(3) { top: 28px; }
+
+/* 开着的时候收成一个叉。博客那边是靠 `#menu-toggle:checked ~ header` 选中的，
+   我们是 JS 直接给按钮自己加 .bt-open（见 custom.js 的 setMenu）。 */
+#bt-nav .bt-burger.bt-open span:nth-child(1) { top: 19px; transform: rotate(45deg); }
+#bt-nav .bt-burger.bt-open span:nth-child(2) { opacity: 0; transform: translateX(20px); }
+#bt-nav .bt-burger.bt-open span:nth-child(3) { top: 19px; transform: rotate(-45deg); }
+
+/* 全屏菜单。默认 display:none，点汉堡才 .bt-open。
+   ⚠️ z-index **必须比顶栏的 100 小**。第一次写成 200，结果整条顶栏（连那个
+      已经收成叉的汉堡）被菜单盖住 —— 手机上既看不见叉、也没法再点它关掉，
+      只能点某个链接跳走。博客那边就是 100 vs 90（`.wm-header` / `#mobile-menu`），
+      顶栏浮在菜单上面，叉一直露着可点。这里照抄。
+      90 压 Ech0 正文（.app-stack 是 2）和粒子 iframe（1）都绰绰有余。 */
+#bt-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;                        /* 博客的移动菜单是 gap-6 */
+  background: var(--color-bg-canvas);
+  border-bottom: 1px dotted var(--bt-dotted);
+}
+#bt-menu.bt-open { display: flex; }
+
+/* 条目用的是顶栏同一副字（Courier Prime 大写 + 字距），只是放大 ——
+   它们本来就是从那六个 .bt-links 里挪过来的，换字体反而像换了一批链接。
+   （博客自己的移动菜单用的是系统方体 1.5rem，那是博客的设计；
+     这里整套皮肤是「克隆它的顶栏」，所以沿用顶栏那副字。） */
+#bt-menu a {
+  font-family: "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+#bt-menu a:hover { color: var(--color-accent); }
+#bt-menu a[aria-current] { color: var(--color-accent); }
 
 /* Ech0 原生的主题键 / 语言键：由 custom.js 的 hideNativeControls() 打标记，
    这里只负责收掉。**不要改成按类名点** —— `.home-header__link-icon` 同时挂在
