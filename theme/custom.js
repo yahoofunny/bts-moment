@@ -156,6 +156,9 @@
         setMenu(!isMenuOpen())
       })
       right.appendChild(burger)
+      // 给 #bt-nav 打个记号：窄屏下**只有存在汉堡时**才把药丸收进菜单。
+      // nav: [] 时没有汉堡、也就没有菜单，药丸再藏起来就彻底没地方切语言了。
+      nav.className += ' bt-has-burger'
     }
 
     if (right.childNodes.length) nav.appendChild(right)
@@ -184,6 +187,19 @@
       a.addEventListener('click', function () { setMenu(false) })
       m.appendChild(a)
     })
+    // 药丸在窄屏收进来（跟博客的 #mobile-menu 一样，摆在链接下面）。
+    // 顶栏里那一个是同一个 mountLang 建出来的第二份，两边共用点击逻辑和
+    // paintLang()；CSS 按宽度决定露哪一个，见 tail.css 第 9 节。
+    mountLang(m)
+    // 点药丸（切语言、切颜文字）顺手把菜单收掉 —— 博客那个外层 <div> 上就挂着
+    // 这么一句 onclick。不收的话菜单一直盖着，切完什么也看不见。
+    // ⚠️ 用 querySelector 找那层药丸，别用 lastChild —— locales < 2 时
+    //    mountLang 直接 return，lastChild 就成了最后一条链接。
+    var langBox = m.querySelector('.bt-lang')
+    if (langBox) {
+      // 接在药丸外层（冒泡）而不是每个按钮上，跟博客那个外层 <div> 一致。
+      langBox.addEventListener('click', function () { setMenu(false) })
+    }
     document.body.appendChild(m)
     syncNav()
   }
@@ -310,7 +326,8 @@
   function paintLang() {
     var cur = storedLocale()
     var on = kaoOn()
-    var bs = document.querySelectorAll('#bt-nav .bt-lang button')
+    // 两份药丸（顶栏里一个、窄屏菜单里一个）共用这套亮/灭状态。
+    var bs = document.querySelectorAll('#bt-nav .bt-lang button, #bt-menu .bt-lang button')
     for (var i = 0; i < bs.length; i++) {
       // 颜文字那段没有 data-locale：它按下 = 颜文字开着；
       // 语言那两段在颜文字开着时**都不亮**（任何时刻只有一个亮着）。

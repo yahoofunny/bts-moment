@@ -729,9 +729,13 @@ color-scheme: light;
 }
 
 /* 语言药丸 —— 博客 .lang-switch / .lang-seg 的逐条翻译。
-   只留 中 / EN 两段：mome 的内容只有中文，这两段切的是 Ech0 自己的
-   界面语言（生成的那个 en 页面就是它）。 */
-#bt-nav .bt-lang {
+   三段：中 / EN 是 Ech0 自己的界面语言，第三段是颜文字（不是语言，见 1d）。
+   ⚠️ **每一条都带两个前缀**：顶栏里一份、窄屏汉堡菜单里一份，是同一个
+      mountLang() 建出来的两份 DOM。按宽度露哪一份由下面窄屏那段决定，
+      用 `#bt-nav .bt-lang` / `#bt-menu .bt-lang` 各写一遍 —— 逗号列表里
+      每个选择器**各算各的特异性**，两份都是 (1,1,0)，跟原来一模一样。 */
+#bt-nav .bt-lang,
+#bt-menu .bt-lang {
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -741,7 +745,8 @@ color-scheme: light;
   border-radius: 999px;
   font-family: inherit;
 }
-#bt-nav .bt-lang button {
+#bt-nav .bt-lang button,
+#bt-menu .bt-lang button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -760,8 +765,10 @@ color-scheme: light;
   cursor: pointer;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
-#bt-nav .bt-lang button:hover { color: var(--color-accent); }
-#bt-nav .bt-lang button[aria-pressed="true"] {
+#bt-nav .bt-lang button:hover,
+#bt-menu .bt-lang button:hover { color: var(--color-accent); }
+#bt-nav .bt-lang button[aria-pressed="true"],
+#bt-menu .bt-lang button[aria-pressed="true"] {
   color: var(--color-bg-canvas);
   background: var(--color-accent);
 }
@@ -793,9 +800,19 @@ color-scheme: light;
       全部显示，显然我不需要"）。**别改回折行。** */
 #bt-nav .bt-burger { display: none; }
 
+/* 菜单里那份药丸不用自己管显隐 —— #bt-menu 本身就是 display:none，
+   开了才 flex。这里只把它跟上面六条链接拉开一点距离（菜单的 gap 是 1.5rem，
+   这个 0.6rem 是额外加的），跟博客 `#mobile-menu` 里那个 mt-4 一个意思。 */
+#bt-menu .bt-lang { margin-top: 0.6rem; }
+
 @media (max-width: 900px) {
   #bt-nav .bt-links { display: none; }
   #bt-nav .bt-burger { display: block; }
+
+  /* 药丸也收进菜单（跟博客一样：手机顶栏只剩 标志 + 灯泡 + 汉堡）。
+     `.bt-has-burger` 是 mountNav 打的记号 —— nav: [] 时没有汉堡、也就没有
+     菜单，那种情况下**不能藏**，否则窄屏上根本没地方切语言。 */
+  #bt-nav.bt-has-burger .bt-lang { display: none; }
 }
 
 /* 三条线。尺寸和缓动照抄博客 .spacex-hamburger：40×40 的点击区，
