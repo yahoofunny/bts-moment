@@ -65,3 +65,11 @@ NOTICE
   deploy/ 里那个 8 点转圈图标
       EOS Icons（SUSE UX/UI team），MIT
       https://gitlab.com/SUSE-UIUX/eos-icons
+
+  theme/custom.js 里内联的那个 github 图标（侧栏 SOURCE 入口用）
+      Material Design Icons — Pictogrammers
+      https://github.com/Templarian/MaterialDesign
+      Apache License 2.0，全文见
+      http://www.apache.org/licenses/LICENSE-2.0
+      （图标按 Apache-2.0 授权；Pictogrammers 另有一份针对图标库的
+        "Pictogrammers Free License"，此处按更严格的 Apache-2.0 声明。）

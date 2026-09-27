@@ -133,7 +133,7 @@
   --comment-form-panel-border: rgba(240, 240, 242, 0.16);
   --comment-grid-bg: #0e0e13;
 
-  --comment-input-bg: rgba(14, 14, 19, 0.92);    /* 同博客 .glass-input：paper 底 */
+  --comment-input-bg: rgba(14, 14, 19, 0.92);    /* 同博客输入框：纸面底压一点透明 */
   --comment-input-border: rgba(240, 240, 242, 0.16);
   --comment-input-hover-border: #5c5c66;
   --comment-input-focus-bg: #15151c;

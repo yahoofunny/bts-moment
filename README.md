@@ -1,18 +1,19 @@
 # bt's moment
 
-**给 [Ech0](https://github.com/lin-snow/Ech0) 换一层皮：暗色玻璃 + 亮色纸面。**
+**给 [Ech0](https://github.com/lin-snow/Ech0) 换一层皮：纸面 + 墨色 + 吃豆人。**
 
 一套运行时主题（一段 CSS + 一段 JS，通过面板注入，不改 Ech0 源码），
 外加可选的加载页改写与 systemd/反代部署示例。
 
 > **English abstract** — *bts-moment* is a runtime theme kit for
 > [Ech0](https://github.com/lin-snow/Ech0), a self-hosted single-user microblog
-> written in Go + Vue. It injects a frosted-glass dark theme (and a clean paper
-> light theme) through Ech0's built-in *Custom CSS / Custom JS* settings — no
-> source changes, no rebuild. It also ships a self-contained particle wallpaper
-> page, optional nginx/Cloudflare-Worker snippets that restyle the pre-Vue
-> loading screen, and a hardened systemd unit. Licensed AGPL-3.0-or-later,
-> matching upstream.
+> written in Go + Vue. It injects a flat paper-and-ink skin plus a clone of the
+> companion blog's header (pacman → home, centered nav, language pill, light
+> switch) through Ech0's built-in *Custom CSS / Custom JS* settings — no source
+> changes, no rebuild. It also ships a self-contained particle wallpaper page,
+> optional nginx/Cloudflare-Worker snippets that restyle the pre-Vue loading
+> screen, and a hardened systemd unit. Licensed AGPL-3.0-or-later, matching
+> upstream.
 
 ---
 
@@ -46,36 +47,41 @@ Ech0 是一个自托管的单人微博客：Go 写的单文件二进制，前端
 | **改了什么** | 只加样式和客户端脚本；Ech0 一行源码都没动 |
 | **许可** | AGPL-3.0-or-later（跟上游一致，见 [NOTICE](NOTICE)） |
 
-「玻璃」的部分来自另一个模板项目
-[liquid-glasses-template-for-blog](https://github.com/yahoofunny/liquid-glasses-template-for-blog)
-的那套毛玻璃配方（半透明填充 + 1px 描边 + `backdrop-filter`），
-但**三个旋钮全部换成了配套博客的色值**，配方本身照搬、不发明新东西。
+皮肤的来路很直白：它**是配套博客（[bingtao.xyz](https://bingtao.xyz)）那一套的复制品**。
+配色、字体、顶栏、开关灯、语言药丸，全部照抄博客的 `src/styles/global.css` 与
+`Base.astro`，数值都写在注释里。所以这套东西可以一句话概括：
 
-所以这套东西可以一句话概括：**Ech0 的骨架 + 玻璃的材质 + 博客的排版习惯。**
+> **Ech0 的骨架 + 博客的皮肤。**
+
+没有玻璃、没有 `backdrop-filter`、没有半透明填充 —— 面板就是实心纸面，
+唯一的装饰是 `1px dotted` 的虚线和粒子壁纸。
 
 ---
 
 ## 长什么样
 
-**暗色（默认）** —— 玻璃面板浮在粒子壁纸上：
+**暗色（默认）** —— 纸面变墨色，粒子壁纸透在正文后面：
 
 ![暗色](screenshots/dark.png)
 
-**亮色** —— 干净的纸面，没有粒子也没有玻璃：
+**亮色** —— 干净的纸，粒子收起：
 
 ![亮色](screenshots/light.png)
 
-两套颜色的分工是刻意的：
+**英文** —— 右上角点一下 `EN`，界面当场变英文（不用刷新）：
+
+![英文](screenshots/en.png)
+
+两套颜色的分工是刻意的，全部来自博客的 token：
 
 | | 暗色 | 亮色 |
 |---|---|---|
-| 底色 | `#0e0e13` 近黑 | `#fdfdfd` 近白 |
-| 面板 | 玻璃：`--wm-card` 的 58% + `blur(14px)` + 1px 描边 | 不透明纸面 |
-| 粒子壁纸 | 开（`display:block`） | 关（`display:none`） |
+| 纸面 | `#0e0e13` 近黑 | `#fdfdfd` 近白 |
 | 主色 | `#6e6eff` | `#0000f2` |
+| 虚线 | `#3a3a44` | `#c9c9c9` |
+| 粒子壁纸 | 开（`display:block`） | 关（`display:none`） |
 
-> 亮色**刻意不给玻璃**。那边粒子是关的，面板后面只有一块纯色纸，
-> 加玻璃唯一的效果是让纸面发脏。
+> 亮色**刻意不挂粒子**。博客那边就是这样的：亮色的稿纸上撒一把发光的点是脏的。
 
 ---
 
@@ -112,6 +118,18 @@ particleUrl: 'https://你的静态站/bg-particle/index.html',
 
 不想挂粒子就留空字符串 `''`，主题在暗色下就只是一块纯色底，其余照常。
 
+### 顶栏那几张图
+
+顶栏左边那个**吃豆人**、右上角那**两张灯泡**，都是图片，不在仓库里 ——
+`CONFIG.home.icon` 和 `CONFIG.themeIcons` 现在是占位路径，得换成你自己的图。
+（吃什么豆人是个人口味，所以留给你自己配；`screenshots/` 里那几个是作者的。）
+
+两条要求：
+
+- 灯泡两张都应该是**深色线条图**。暗色下脚本会给它加 `filter: invert(1)` 翻白 ——
+  跟博客那段 `setTheme()` 是同一个做法，所以**不要**自己准备一张白色的。
+- 图标务必是**正方形 SVG**。它是按固定 `20px` 摆的，宽高不等的图会歪。
+
 ### 完整一点
 
 再往下还有两件可选的：
@@ -125,7 +143,7 @@ particleUrl: 'https://你的静态站/bg-particle/index.html',
 
 ## 配置
 
-**你要改的东西全在 `theme/custom.js` 顶部的 `CONFIG` 里**，就三个字段：
+**你要改的东西全在 `theme/custom.js` 顶部的 `CONFIG` 里：**
 
 ```js
 var CONFIG = {
@@ -133,7 +151,7 @@ var CONFIG = {
   particleUrl: '/bg-particle/index.html',
 
   // 顶栏六栏目。换成你自己站点的真实路径；少放几个就删行；
-  // 留空数组 [] 则整个顶栏不出现。
+  // 留空数组 [] 则整个栏目区不出现。
   nav: [
     { label: 'Chat',     href: '/chat/' },
     { label: 'Games',    href: '/games/' },
@@ -142,6 +160,23 @@ var CONFIG = {
     { label: 'Gadgets',  href: '/radio/' },
     { label: 'About',    href: '/about/' }
   ],
+
+  // 顶栏左边那个标志（吃豆人），点了回主站首页。
+  home: { href: '/', icon: '/pacman.svg' },
+
+  // 右上角开关灯的图标：亮色用 light、暗色用 dark。两张都要深色线条图。
+  themeIcons: { light: '/off.svg', dark: '/on.svg' },
+
+  // 右上角语言药丸。code 是 Ech0 自己的语言代码（存在 localStorage.locale），
+  // name 必须逐字等于 Ech0 语言菜单里那一项。
+  locales: [
+    { code: 'zh-CN', label: '中', name: '简体中文' },
+    { code: 'en-US', label: 'EN', name: 'English' }
+  ],
+
+  // 侧栏底部那行 `version: x.y.z` 改成指向你自己那份主题仓库的源码入口。
+  // 留空则整行藏掉（也就是不启用）。见「合规」。
+  sourceUrl: '',
 
   // 首次访问落到哪套主题：'dark' 或 'light'
   defaultTheme: 'dark'
@@ -152,14 +187,34 @@ var CONFIG = {
 顶栏当前页会自动高亮，SPA 站内跳转也会跟着更新（脚本打了
 `pushState` / `replaceState` 补丁，不轮询）。
 
-想改**样式**（颜色、圆角、玻璃强度）要动 `theme/src/`：
+### 关于语言
+
+Ech0 自带 i18n（简体中文 / English / Deutsch / 日本語），但**它没有基于路径的
+语言路由** —— `/en/` 是 404。语言是客户端状态，存在 `localStorage.locale` 里。
+
+所以这里的做法是：顶栏那个药丸**去点 Ech0 自己的语言菜单**（原生那个被藏起来了，
+但程序化点击照样生效），点完界面当场就变，不用刷新。两侧：
+
+- **要一个能分享的英文链接**：`https://你的站/?lang=en`。脚本读到这个参数会
+  直接落到英文界面，并且用 `replaceState` 把参数抹掉（免得跟刷新打架）。
+  别名 `zh` / `en` 也认。
+- **要一个真正的 `/en/` 路径**：那得改 Ech0 源码加路由，不在这个主题的能力范围内。
+
+`locales` 数组里的 `name` 要**逐字**对上 Ech0 菜单里的显示名（就是
+`简体中文` / `English` / `Deutsch` / `日本語` 那几项），因为脚本是靠文本去找那一项、
+再点它的。对不上会**退回**「写 localStorage + 刷新页面」的兜底路径 ——
+效果一样，只是整页会闪一下。加语言就往数组里加一行。
+
+### 改样式
+
+想改颜色、间距这些，要动 `theme/src/`：
 
 ```
 theme/
 ├─ custom.css        ← 构建产物。**别手改**，会被下次构建覆盖
 ├─ custom.js         ← 手写，直接改
 └─ src/
-   ├─ tokens.css     ← 暗色的所有色值，按 /* ===== 2.x */ 分节
+   ├─ tokens.css     ← 所有色值，按 /* ===== 2.x */ 分节
    ├─ tail.css       ← 第 3 节往后的所有规则（都走 var()，明暗自动跟）
    └─ build.py       ← tokens + tail → custom.css
 ```
@@ -213,39 +268,9 @@ Ech0 的前端是 UnoCSS 原子类。翻它编译出来的主 CSS（v5.7.0 那�
 
 第二类只能逐个点名，也是 `custom.css` 篇幅最大的部分。
 
-> 顺带一提：**浮层类**（主题切换 / 用户菜单 / 语言切换的下拉）在 Ech0 里
+> 顺带一提：**浮层类**（用户菜单 / 语言菜单的下拉）在 Ech0 里
 > 是写死的白底黑字，暗色站里点一下会弹出一个白框。这是最扎眼的一处，
 > `tail.css` 第 4 节专门修了它。
-
-### 玻璃是怎么调的
-
-配方只有三个旋钮，来自那个玻璃模板项目：
-
-```
-填充 rgba(255,255,255,.06)   描边 1px rgba(255,255,255,.1)   blur(16px)
-```
-
-搬过来时把三个旋钮换成博客的 token、圆角归零（全站 `border-radius: 0`
-是这套视觉的一部分）：
-
-```
-填充 = --wm-card 的 58%   描边 = --wm-line   blur = 14px（面板）/ 20px（顶栏）
-```
-
-**照模板的方子，不加 `saturate()`** —— 加了会明显发灰。
-
-两个坑，都是实测出来的，不是推断：
-
-1. **`backdrop-filter` 确实能采样到跨源 iframe。** 粒子壁纸是一个跨源
-   iframe，Chrome 在这块历史上有过 bug，所以专门做了对照实验：`blur(4px)`
-   时粒子仍清晰可见、只是变虚 —— 证明确实在采样。
-
-2. **但粒子只有 1px 上下，模糊半径一大就整个糊没了。** `blur(18px)` 直接
-   看不见粒子。所以**模糊半径是个真·设计旋钮**，不是随手填的数：
-   14px / 20px 是「糊得动背景、又留得住粒子」那个位置。
-
-还有一条实现细节：描边用 `box-shadow: inset 0 0 0 1px` 画，**不用 `border`**。
-那些元素原本没有 border，直接加会挤掉 2px 内容高度，滚动时能看见轻微跳动。
 
 ### 三档字体
 
@@ -261,22 +286,30 @@ Ech0 的前端是 UnoCSS 原子类。翻它编译出来的主 CSS（v5.7.0 那�
 它负责气质，正文负责能读。中文正文尤其不能用 Oswald / Courier Prime，
 它们没有汉字，会掉到 fallback 上去。
 
-### 顶栏那六项
+### 顶栏
 
-元素由 `custom.js` 注入，样式在 `tail.css` 第 10 节。三个坑：
+元素由 `custom.js` 注入，样式在 `tail.css` 第 9 节。它是博客 `.wm-header`
+的克隆：左边吃豆人（回主站）、中间六栏目**绝对居中**、右边语言药丸 + 开关灯。
+四个坑：
 
 1. **必须自己抬层。** 粒子 iframe 是 `position:fixed; inset:0; z-index:1`，
    它的 `body` 是不透明的 `#060914` —— 暗色下它就是一块盖住整个视口的深色板。
    普通文档流里的元素 `z-index` 是 `auto`，会被它整个盖住。（亮色下粒子是
-   `display:none`，所以**只在暗色里消失**，特别容易看漏。）顶栏跟着
-   `.app-stack` 抬到 `z-index: 3`。
+   `display:none`，所以**只在暗色里消失**，特别容易看漏。）顶栏给 `z-index: 100`。
 
-2. **不做 `position:fixed`。** 配套博客顶栏是 fixed 的，但 Ech0 自己顶上
-   已经有一个 sticky 的 `.home-header` 了，再来一个 fixed 的会直接压在一起。
-   放在正常文档流里把 `#app` 往下挤，最稳。
+2. **用 sticky，不用 fixed。** 博客顶栏是 fixed 的，但 Ech0 顶上已经有自己的
+   header，还有一堆整屏浮层（`.palette`、`.chat-launcher`、v-popper 的下拉）——
+   再来一个 fixed 的高层要挨个去躲，很容易压到东西。sticky 同样是常驻顶部，
+   却仍然待在文档流里：不用给 `#app` 补 padding，也不会盖住任何浮层。
 
-3. **侧栏当前项只能点 `--active` 修饰类。** Ech0 给四个导航项**都**挂了
-   `router-link-active` / `router-link-exact-active`，按那个写会把四项全点亮。
+3. **Ech0 原生的主题键和语言键不能按类名一刀切。** `.home-header__link-icon`
+   是个通用类名，RSS / 进入禅模式 / 切换主题 / 登录四个按钮**都挂着它**，
+   按类名藏会连带干掉三个不相干的。所以 `custom.js` 里是逐个认
+   `aria-label`、认出来打上 `.bt-native`，再由 CSS 收掉；认不出来就不动它。
+   （这是「顶栏换了但 RSS 没了」这类事故的来源。）
+
+4. **两栏的层内关系照抄博客。** 博客是 `#wm-particle(-1)` / `.wm-header(100)`，
+   这里保持一致。
 
 ### 主题为什么被「接管」
 
@@ -341,6 +374,10 @@ Ech0 读到的就是我们设的那套。
   不带 scoped 的 `data-v` 哈希，所以那部分相对抗升级。
 - **Ech0 只有明暗两态可用。** 它的 `sunny` 主题被归到了亮色那套，
   想要第三套配色得改 `build.py` 的 `PALETTE`。
+- **没有 `/en/` 路径。** Ech0 没有基于路径的语言路由，见[关于语言](#关于语言)。
+  能给你的是「当场切换」和 `?lang=en` 两种。
+- **原生语言菜单被藏起来了。** 语言真要加到四种以上，那个药丸会变宽，
+  可能得顺手调 `tail.css` 第 9 节的 `.bt-lang` 尺寸。
 - **粒子壁纸是 iframe，不是 canvas。** 好处是跟主站完全隔离、零耦合；
   代价是每个页面多一个跨源请求，以及上面说的那个 `z-index` 坑。
   不想要就配 `particleUrl: ''`。
@@ -349,6 +386,8 @@ Ech0 读到的就是我们设的那套。
   留着只是因为它是上游模板的原样。
 - **字体只带了拉丁字形。** Oswald 和 Courier Prime 都没有汉字，
   中文会掉到系统字体 —— 这是设计如此（见[三档字体](#三档字体)）。
+- **顶栏那几张图不在仓库里**（吃豆人、两张灯泡），得自己配，
+  见[顶栏那几张图](#顶栏那几张图)。
 
 ---
 
@@ -358,14 +397,23 @@ Ech0 读到的就是我们设的那套。
 选它而不是 MIT，是因为它是专为 Ech0 写的衍生作品，跟上游一致最省事。
 
 AGPL §13 要求：**通过网络与它交互的用户，必须能拿到对应源码。**
-跑这套主题对外提供服务的人，需要提供一个源码链接。两种做法：
+跑这套主题对外提供服务的人，需要提供一个源码链接。
 
-1. 在页脚加一条很轻的链接指向你这份主题的仓库；
-2. 确保站上有一个显眼的「源码 / Source」入口。
+主题给这个要求留了一个现成的落点：Ech0 主页侧栏底部那行
+`version: x.y.z`（它原本就指向上游），会被改造成「图标 + `SOURCE`」的入口。
+把 `CONFIG.sourceUrl` 填成你自己那份主题仓库的地址即可：
 
-> 顺带说一句：Ech0 主页右下角那行 `version: x.y.z` 是它**唯一**一条指向上游的
-> 链接。主题里把它藏掉了（`tail.css` 第 8 节，那行太出戏），所以如果你也
-> 藏了它，记得在别处把源码入口补回来。
+```js
+sourceUrl: 'https://github.com/你的名字/你的主题仓库',
+```
+
+**不填就整行藏掉**，跟没有这个功能时一样。
+
+> 顺带说一句：那行是 Ech0 **唯一**一条指向上游的链接。主题把它改指向了
+> **这份主题**，而不是上游 Ech0 —— 因为 §13 要的是「访问者能拿到他正在交互的
+> 这一版源码」。上游的出处在上面的 `NOTICE` 里写清楚了。
+>
+> 你自己那份 fork 如果也改了主题，记得 `sourceUrl` 要指向**你自己**的仓库。
 
 `NOTICE` 里有完整的修改声明（§5(a) 要求）和第三方组件清单。
 
@@ -375,9 +423,11 @@ AGPL §13 要求：**通过网络与它交互的用户，必须能拿到对应�
 
 - 本仓库：**AGPL-3.0-or-later**
 - [Ech0](https://github.com/lin-snow/Ech0) — L1nSn0w and contributors，AGPL-3.0
-- 玻璃配方来自 [liquid-glasses-template-for-blog](https://github.com/yahoofunny/liquid-glasses-template-for-blog)
+- 皮肤照搬自配套博客 [bingtao.xyz](https://bingtao.xyz)（同作者）的
+  `src/styles/global.css` 与 `Base.astro`
 - Oswald / Courier Prime — SIL OFL 1.1（[fonts/](fonts/)）
 - particles.js — Vincent Garreau，MIT
+- 侧栏那个 `SOURCE` 用的 github 图标 — Material Design Icons（Pictogrammers），Apache-2.0
 - 加载页那个转圈图标 — EOS Icons（SUSE UX/UI team），MIT
 
 作者：[@yahoofunny](https://github.com/yahoofunny) ·

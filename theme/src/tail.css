@@ -145,125 +145,268 @@
   display: none;
 }
 
-/* ---------- 8. 主页右下角那行版本号（用户点名要删）----------
-   HomeView 侧栏里的
-   <a href="https://github.com/lin-snow/Ech0" class="home-aside__version"> version: 5.7.0</a>
-   整行拿掉。注意它同时是页面上唯一一条指向上游的链接 —— 删掉之后
-   AGPL §13 要求的「源码可得」就只剩仓库里那份 NOTICE 了，
-   需要在别处补一条源码链接（见 README 的「合规」一节）。 */
+/* ---------- 8. 侧栏底部那行版本号 → 本主题的源码入口 ----------
+   HomeView 侧栏里原来渲染出来是：
+     <a href="https://github.com/lin-snow/Ech0" class="home-aside__version"> version: 5.7.0</a>
+   元素和位置都不动，只把 href 和内容换掉，指到本主题的仓库。
+
+   为什么这么改：那行是 Ech0 **唯一**一条指向上游的链接，而它指向上游、
+   不指向这份主题。AGPL §13 要的是「访问者能拿到**他正在交互的这一版**的
+   源码」，也就是这份主题（上游地址在仓库 NOTICE 里）—— 所以这里正好是
+   那个源码入口该待的位置。
+
+   ⚠️ 分工：**href 和图标只能由 custom.js 给**（CSS 改不了 href），
+   这里只管长相。没被 JS 接管时维持 display:none —— 也就是不配
+   `CONFIG.sourceUrl` 的话，行为跟以前一样是整行藏掉，
+   不会留下一个指向 Ech0 的裸链接。 */
 :root:root .home-aside__version {
   display: none;
 }
 
-/* ---------- 9. 玻璃层（暗色专属）----------
-   配方来自 liquid-glasses-template-for-blog，它只有四个旋钮：
-     填充 rgba(255,255,255,.06) / 描边 1px rgba(255,255,255,.1)
-     / blur(16px) / 圆角 16px
-   糅合 = 旋钮换成博客 token、圆角归零（第 5 节已全局归零）：
-     填充 --wm-card 的 58% / 描边 --wm-line / blur(14px)
-   照模板的方子，**不加 saturate()** —— 加了会明显发灰。
-
-   ⚠️ 两个实测结论，不是推断：
-   1. backdrop-filter **能**采样到粒子 iframe。粒子是跨源 iframe，
-      Chrome 在这块历史上有过 bug，所以专门做了对照实验：blur(4px) 时
-      粒子仍清晰可见、只是变虚 —— 证明确实在采样。
-   2. 但粒子只有 1px 上下，blur 一大就整个糊没了（blur(18px) 直接看不见）。
-      所以**模糊半径是个真·设计旋钮**，不是随手填的：面板 14px、顶栏 20px
-      是「糊得动背景、又留得住粒子」的位置。
-
-   为什么用 inset box-shadow 画描边而不是 border：
-   .echo-header-sticky 这类元素原本没有 border，直接加会挤掉 2px 内容高度，
-   滚动时能看到轻微跳动。inset shadow 不占布局，零位移。
-
-   亮色刻意**不给玻璃** —— 那边粒子是关的，玻璃只会让纸面发脏。 */
-:root:root.dark {
-  --bt-glass-fill: rgba(23, 23, 29, 0.58);    /* ← --wm-card #17171d 的 58% */
-  --bt-glass-line: rgba(240, 240, 242, 0.16); /* ← --wm-line */
-  --bt-glass-blur: blur(14px);
-}
-
-:root:root.dark .echo-header-sticky,
-:root:root.dark .extension-card-shell,
-:root:root.dark .extension-card-shell__header,
-:root:root.dark .home-filter__search-shell,
-:root:root.dark .home-filter__kbd-hint,
-:root:root.dark .home-sidebar-nav__link--active {
-  background: var(--bt-glass-fill) !important;
-  backdrop-filter: var(--bt-glass-blur);
-  -webkit-backdrop-filter: var(--bt-glass-blur);
-  box-shadow: inset 0 0 0 1px var(--bt-glass-line);
-}
-
-/* 侧栏当前项：**只能点 --active 这个修饰类**。
-   Ech0 给四个导航项**都**挂了 router-link-active / router-link-exact-active
-   （还在 DOM 里渲染了两份：--mobile 一份、桌面轨道一份，靠 CSS 显隐），
-   按 router-link-active 写会把四项全点亮。真正的开关是 --active。
-
-   顶栏：玻璃模板的签名元素就是那条半透明 + blur(20px) 的 header。
-   Ech0 的顶栏是 sticky 的，正文会从下面滚过去，所以不透明也成立，
-   但玻璃更贴模板 —— 而且它上面没有粒子，可以放心用更大的半径。 */
-:root:root.dark .home-header {
-  background: var(--bt-glass-fill) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: inset 0 -1px 0 var(--bt-glass-line);
-}
-
-/* ---------- 10. 顶栏六栏目 ----------
-   元素由 custom.js 注入（见那里的 CONFIG.nav），这里只管长相。
-   数值照抄博客的 .nav-link（global.css:159）：Courier Prime、0.7rem、700、
-   大写、letter-spacing .12em —— 这一段就是「微标签」那一档字体。
-
-   ⚠️ 三个坑，全部是实测踩出来的：
-
-   1. **必须自己抬层。** 粒子 iframe 是 position:fixed; inset:0; z-index:1，
-      而它的 body 是不透明的 #060914 —— 暗色下它就是一块盖住整个视口的
-      深色板。普通文档流里的元素 z-index 是 auto，会被它整个盖住。
-      .app-stack 是 z-index:2 所以正文没事，这里跟着抬到 3。
-      （亮色下粒子是 display:none，所以**只在暗色里消失**，特别容易看漏。）
-
-   2. **不做 position:fixed。** 博客的 .wm-header 是 fixed（global.css:149），
-      但 Ech0 自己顶上已经有一个 sticky 的 .home-header 了，再来一个 fixed
-      的会直接压在一起。放在正常文档流里把 #app 往下挤，最稳。
-
-   3. **不能 point 错元素。** #bt-nav 是 id，特异性 (1,0,0) 已经压过 :root:root
-      的 (0,2,0)，所以下面不必再套 :root:root。 */
-#bt-nav {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  flex-wrap: wrap;
+/* JS 打上 .bt-source 之后才放出来，长成「图标 + source」的微标签，
+   跟第 9 节顶栏同一档字体（Courier Prime / 大写 / .12em）。 */
+:root:root .home-aside__version.bt-source {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 1.6rem;
-  padding: 0.62rem 1rem;
+  gap: 0.38rem;
+  padding: 0 8px;               /* 左对齐沿用原版的 8px，和上面的搜索框齐 */
   font-family: "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  box-sizing: border-box;
-}
-
-#bt-nav a {
   color: var(--color-text-muted);
   text-decoration: none;
   transition: color 0.15s ease;
 }
-#bt-nav a:hover { color: var(--color-accent); }
-#bt-nav a[aria-current] { color: var(--color-accent); }
-
-/* 暗色：跟第 9 节同源的一块玻璃，底边一条发丝线。 */
-:root:root.dark #bt-nav {
-  background: var(--bt-glass-fill);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: inset 0 -1px 0 var(--bt-glass-line);
+:root:root .home-aside__version.bt-source:hover {
+  color: var(--color-accent);
 }
 
-/* 亮色：不透明纸面 + 点线，跟博客 .wm-header 的 border-bottom 一致。 */
-:root:root.light #bt-nav,
-:root:root.sunny #bt-nav {
+/* 图标用 1em 系尺寸跟着字号走，别写死 px —— 换字号时不用回来改两处。 */
+:root:root .home-aside__version.bt-source svg {
+  display: block;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+}
+
+/* ---------- 9. 顶栏：博客 header 的克隆 ----------
+   （原第 9 节那层玻璃已按用户要求删掉 —— 现在整套皮肤就是博客那一套，
+     不留 backdrop-filter，也不留任何半透明填充。）
+
+   这一条顶栏是 mome 的站内导航，长得和博客的 .wm-header 一样：
+     左：吃豆人 → 回博客首页
+     中：六栏目（绝对居中，同博客的 absolute left-1/2 -translate-x-1/2）
+     右：语言药丸 中/EN + 开灯关灯
+
+   元素全部由 custom.js 注入（见那里的 CONFIG.nav / CONFIG.home /
+   CONFIG.themeIcons / CONFIG.locales）。
+   数值照抄博客 src/styles/global.css：
+     .wm-header   line 148   background: paper / border-bottom: 1px dotted
+     .nav-link    line 159   Courier Prime / 0.7rem / 700 / uppercase / .12em
+     .lang-switch line 325   药丸：panel 底 + line 描边 + 999px 圆角
+     #theme-toggle line 109  20px 图标，亮色 off.svg、暗色 on.svg 反转
+
+   ⚠️ 四个坑，全部是实测踩出来的：
+
+   1. **必须自己抬层。** 粒子 iframe 是 position:fixed; inset:0; z-index:1，
+      而它的 body 是不透明的 #060914 —— 暗色下它就是一块盖住整个视口的
+      深色板。普通文档流里的元素 z-index 是 auto，会被它整个盖住。
+      .app-stack 是 z-index:2 所以正文没事，顶栏给 100。
+      （亮色下粒子是 display:none，所以**只在暗色里消失**，特别容易看漏。）
+      这个 100 和博客那边 #wm-particle(-1) / .wm-header(100) 的上下关系一致。
+
+   2. **用 sticky，不用 fixed。** 博客是 fixed + 正文 pt-24，但 Ech0 顶上
+      已经有自己的 header，还有一堆整屏浮层（.palette、.chat-launcher、
+      v-popper 的下拉）—— 再来一个 fixed 的 100 层要挨个去躲，很容易压到东西。
+      sticky 同样是常驻顶部，却仍然待在文档流里：不用给 #app 补 padding，
+      也不会盖住任何浮层。
+
+   3. **不能 point 错元素。** #bt-nav 是 id，特异性 (1,0,0) 已经压过
+      :root:root 的 (0,2,0)，所以下面不必再套 :root:root。
+
+   4. **Ech0 原生的主题键和语言键是 JS 打标记藏掉的**，不是这里按类名点的 ——
+      `.home-header__link-icon` 是个通用类名，RSS / 禅模式 / 主题 / 登录
+      四个按钮都挂着它，一刀切会连带干掉三个。见 custom.js 的
+      hideNativeControls()。 */
+#bt-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-sizing: border-box;
+  height: 64px;                    /* 博客 header 是 h-16 */
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
   background: var(--color-bg-canvas);
   border-bottom: 1px dotted var(--bt-dotted);
+  font-family: "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* 左：吃豆人。博客里它是 28×28 的 <img>，点了回首页。 */
+#bt-nav .bt-home {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+#bt-nav .bt-home img {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+/* 中：六栏目，绝对居中 —— 跟博客一样，两边放什么都不影响它的位置。 */
+#bt-nav .bt-links {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1.7rem;                     /* 博客 nav 是 gap-7 */
+}
+#bt-nav .bt-links a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+#bt-nav .bt-links a:hover { color: var(--color-accent); }
+#bt-nav .bt-links a[aria-current] { color: var(--color-accent); }
+
+/* 右：语言药丸 + 开关灯，一起靠右。 */
+#bt-nav .bt-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+/* 语言药丸 —— 博客 .lang-switch / .lang-seg 的逐条翻译。
+   只留 中 / EN 两段：mome 的内容只有中文，这两段切的是 Ech0 自己的
+   界面语言（生成的那个 en 页面就是它）。 */
+#bt-nav .bt-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  font-family: inherit;
+}
+#bt-nav .bt-lang button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 0.24rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+#bt-nav .bt-lang button:hover { color: var(--color-accent); }
+#bt-nav .bt-lang button[aria-pressed="true"] {
+  color: var(--color-bg-canvas);
+  background: var(--color-accent);
+}
+
+/* 开关灯 —— 博客 #theme-toggle 同款：20px 图标，亮色 off.svg、暗色 on.svg。
+   图标本身是深色的，暗色下靠 JS 加 invert(1) 翻白（博客也是这么干的）。 */
+#bt-nav .bt-theme {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: color 0.15s ease;
+}
+#bt-nav .bt-theme:hover { color: var(--color-accent); }
+#bt-nav .bt-theme img {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+/* 窄屏：绝对居中会让栏目压到吃豆人和药丸上，这里退回普通流。
+   栏目换到第二行居中，顶栏跟着长高（sticky 不受影响）。 */
+@media (max-width: 900px) {
+  #bt-nav {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.9rem;
+    row-gap: 0.45rem;
+  }
+  #bt-nav .bt-links {
+    position: static;
+    transform: none;
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+  }
+  #bt-nav .bt-right { gap: 0.6rem; }
+}
+
+/* Ech0 原生的主题键 / 语言键：由 custom.js 的 hideNativeControls() 打标记，
+   这里只负责收掉。**不要改成按类名点** —— `.home-header__link-icon` 同时挂在
+   RSS / 禅模式 / 主题 / 登录 四个按钮上，一刀切会误伤三个。
+   用 !important 是因为 Ech0 那几个按钮靠 UnoCSS 的 flex 类显示，
+   权重不一定比这里低，而这条本来就该是终局状态。 */
+.bt-native {
+  display: none !important;
+}
+
+/* ---------- 10. /zen 卡片右上角那个「打开详情」按钮 ----------
+   它原本装的是 Ech0 自己的 logo（一个实心圆角方块）：
+     <button aria-label="打开详情" class="flex-none opacity-70 ...">
+       <img src="/Ech0.svg" class="w-5 h-5 sm:w-6 sm:h-6">
+     </button>
+   换成一枚朝下的实心三角（Material Symbols 的 arrow_drop_down）。
+   之所以能纯 CSS 做到、不用 custom.js：按钮和图标是同一个元素关系，
+   把 <img> 遮掉再在 ::after 上画一个就行 —— 而 /zen 是无限滚动，
+   卡片会一直新增，JS 得挂观察者追着打，CSS 天然免疫。
+
+   三个决定：
+   1. <img> 只把 opacity 归零，**不能 display:none** —— 它是这个按钮
+      唯一的尺寸来源（w-5 h-5 sm:w-6 sm:h-6），拿掉按钮会塌成 0×0。
+      留着它撑尺寸，::after 用 inset:0 自动贴合，两个断点也不用重写。
+   2. 用 mask 而不是把图标换成图片：mask 只取 alpha 通道，
+      颜色来自 background-color: currentColor，于是明暗两套自动跟着走，
+      不必把 #f0f0f2 / #111111 写死两份。
+   3. fill 写 black 只是为了让 alpha 是满的 —— mask 不看颜色。
+
+   尺寸：mask 放大到 133%。图标自带 24 的 viewBox，一比一放在 24 的按钮里
+   只有 8px 宽 —— 那个位置原来是一整块 24×24 的实心 logo，缩得太狠会显得
+   那块地方空掉。1.33 是图标原件的 width/height（32）比 viewBox（24）的值。 */
+:root:root .zen-view button[aria-label="打开详情"] {
+  position: relative;
+}
+:root:root .zen-view button[aria-label="打开详情"] img {
+  opacity: 0;
+}
+:root:root .zen-view button[aria-label="打开详情"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M11.475 14.475L7.85 10.85q-.075-.075-.112-.162T7.7 10.5q0-.2.138-.35T8.2 10h7.6q.225 0 .363.15t.137.35q0 .05-.15.35l-3.625 3.625q-.125.125-.25.175T12 14.7t-.275-.05t-.25-.175'/%3E%3C/svg%3E") center / 133% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M11.475 14.475L7.85 10.85q-.075-.075-.112-.162T7.7 10.5q0-.2.138-.35T8.2 10h7.6q.225 0 .363.15t.137.35q0 .05-.15.35l-3.625 3.625q-.125.125-.25.175T12 14.7t-.275-.05t-.25-.175'/%3E%3C/svg%3E") center / 133% no-repeat;
 }
