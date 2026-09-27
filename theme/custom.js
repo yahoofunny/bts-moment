@@ -356,8 +356,16 @@
   // 归到了同一套，照原样点就会出现「点一下没反应」的中间态。这里自己写
   // class 和 localStorage，绕过它那个 store —— 存进去的仍是 themeMode
   // 这个 key，所以刷新后 Ech0 自己读到的就是我们设的那套。
-  // ⚠️ 代价：store 里的内存态会和 DOM 不同步，但因为所有点击都被我们拦下了，
-  //    它的 toggleTheme 永远不会再跑，所以不会打架。
+  // ⚠️ 代价：store 里的内存态会和 DOM 不同步，但因为它的 toggleTheme 永远不会
+  //    再跑，所以不会打架。
+  //
+  // 现在的分工是两层：
+  //   · 正常情况：原生那个按钮被 hideNativeControls() 打上 .bt-native 藏掉了，
+  //     用户点的是顶栏里我们自己画的开关（paintTheme 负责图标）。
+  //   · 兜底：hijack 这个是 document 级 capture 监听，**一直都在**。
+  //     哪天 Ech0 改了 aria-label、hideNativeControls() 认不出没藏住，
+  //     那个按钮就会露出来 —— 这时 hijack 拦下它，让它至少是个两态开关，
+  //     而不是点一下卡在没反应的 sunny 上。relabel() 同理，只服务这条兜底路径。
   function apply(mode) {
     var el = document.documentElement
     for (var i = 0; i < THEMES.length; i++) el.classList.remove(THEMES[i])
