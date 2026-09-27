@@ -1,0 +1,7 @@
+# 一律以 LF 存进仓库。
+# 不是为了洁癖：theme/src/build.py 是用 newline='\n' 写出 custom.css 的，
+# 如果某台机器检出成 CRLF，构建产物就和仓库里那份对不上字节了 ——
+# 「可重复构建」这个承诺会莫名其妙地失效，而且只在 Windows 上失效。
+* text=auto eol=lf
+*.png binary
+*.woff2 binary
