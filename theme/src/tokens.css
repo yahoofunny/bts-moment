@@ -1,0 +1,200 @@
+:root:root {
+  color-scheme: dark;
+
+  /* ===== 2.1 骨架色 ← --wm-paper / --wm-card / --wm-panel ===== */
+  --color-bg-canvas: #0e0e13;
+  --color-bg-surface: #17171d;
+  --color-bg-muted: #15151c;
+  --color-chrome-theme: #0e0e13;
+
+  /* 文字 ← --wm-ink / --wm-ink-soft / --wm-muted */
+  --color-text-primary: #f0f0f2;
+  --color-text-secondary: #b9b9c2;
+  --color-text-muted: #8b8b95;
+
+  /* 分隔线 ← --wm-line / --wm-faint */
+  --color-border-subtle: rgba(240, 240, 242, 0.16);
+  --color-border-strong: #5c5c66;
+
+  /* 强调色 = 博客那抹电光蓝（暗色版 --wm-primary） */
+  --color-accent: #6e6eff;
+  --color-accent-soft: rgba(110, 110, 255, 0.18);
+  --color-focus-ring: rgba(110, 110, 255, 0.42);
+  --color-danger: #ff6b6b;
+
+  --color-nav-active-bg: rgba(110, 110, 255, 0.18);
+  --color-nav-active-text: #f0f0f2;
+  --color-overlay-strong: rgba(6, 6, 10, 0.72);
+
+  --selection-bg-color: #6e6eff;
+  --selection-text-color: #ffffff;
+
+  /* ===== 2.2 字体 =====
+     博客把字体分三档：--font-display(Oswald) / --font-mono(Courier Prime) / --font-body(系统栈)。
+     Ech0 这边有**两套**变量名要一起盖：
+       --font-family-* 是它自己组件的，--font-* 是 UnoCSS 主题的。
+     漏掉任何一套，就会有一半元素还是默认字体。 */
+  --font-family-display:
+    "Oswald", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-family-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-family-mono:
+    "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-family-handwritten: "Oswald", "PingFang SC", sans-serif;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono:
+    "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ===== 2.3 直角 =====
+     博客全站零圆角，卡片是硬边方块。Ech0 一共 19 处 border-radius，
+     其中 10 处走这几个变量，剩下的是第三方库内部（见文件末尾 2.9）。
+     --btn-radius 本来就写成 var(--radius-md)，跟着一起归零。 */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-DEFAULT: 0;
+  --border-radius: 0;
+
+  /* ===== 2.4 阴影 =====
+     博客不用柔和光晕，只有硬边投影：hair(静态) / lift(悬浮) / press(按下)。 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 14px 28px -14px rgba(110, 110, 255, 0.3);
+  --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+
+  /* ===== 2.5 Markdown 正文（--md-* 前半段：渲染结果）=====
+     Ech0 自带的是暖棕 + One Dark 代码块；博客是 paper/panel + 电光蓝。 */
+  --md-code-bg: #15151c;                        /* ← --wm-panel */
+  --md-code-bg-transparent: #15151c00;
+  --md-code-text: #b9b9c2;                      /* ← --wm-ink-soft */
+  --md-code-border: rgba(240, 240, 242, 0.16);  /* ← --wm-line */
+  --md-code-header-bg: #0e0e13;                 /* ← --wm-paper */
+  --md-code-header-border: rgba(240, 240, 242, 0.16);
+  --md-code-lang-text: #8b8b95;                 /* ← --wm-muted */
+  --md-code-action-text: #8b8b95;
+  --md-code-action-hover-text: #f0f0f2;
+  --md-code-action-hover-bg: rgba(110, 110, 255, 0.18);
+  --md-code-action-border: rgba(240, 240, 242, 0.16);
+  --md-code-action-copied-text: #6e6eff;        /* 原来是 One Dark 的绿 #98c379 */
+  --md-code-toggle-border: rgba(240, 240, 242, 0.16);
+  --md-code-toggle-hover-border: #6e6eff;
+
+  /* 行内码 = 博客 .prose code：panel 底 + 电光蓝字 + 点线框 */
+  --md-inline-code-bg: #15151c;
+  --md-inline-code-text: #6e6eff;
+
+  --md-thead-bg: #15151c;                       /* 博客 .prose table th 同款 */
+  --md-table-bg: rgba(23, 23, 29, 0.86);
+  --md-table-border: rgba(240, 240, 242, 0.16);
+  --md-table-row-border: rgba(240, 240, 242, 0.16);
+  --md-tbody-hover-bg: rgba(110, 110, 255, 0.1); /* 原来是琥珀色 #e7b0631a */
+
+  /* ===== 2.6 Markdown 编辑器（--md-editor-*）=====
+     这块在原版里是一整套暖棕「木质桌面」质感，跟博客差得最远。 */
+  --md-editor-backdrop-color: rgba(6, 6, 10, 0.72);
+  --md-editor-actions-ring-color: rgba(240, 240, 242, 0.16);
+  --md-editor-actions-hover-bg: rgba(110, 110, 255, 0.18);
+  --md-editor-actions-hover-border: #6e6eff;
+
+  --md-editor-mini-bg: #17171d;                 /* ← --wm-card */
+  --md-editor-mini-border: rgba(240, 240, 242, 0.16);
+  --md-editor-mini-btn-bg: #15151c;
+  --md-editor-mini-btn-border: rgba(240, 240, 242, 0.16);
+  --md-editor-mini-btn-hover-bg: rgba(110, 110, 255, 0.18);
+  --md-editor-mini-shell-bg: #15151c;
+  --md-editor-mini-shell-border: rgba(240, 240, 242, 0.16);
+  --md-editor-mode-toggle-bg: #15151c;
+  --md-editor-mode-toggle-hover-bg: rgba(110, 110, 255, 0.18);
+
+  /* 全屏编辑时的网格纸背景 —— 博客没有纸纹，只留极淡的网格线 */
+  --md-editor-full-grid-bg: #0e0e13;
+  --md-editor-full-grid-frame: rgba(240, 240, 242, 0.16);
+  --md-editor-full-grid-line: rgba(240, 240, 242, 0.07);
+
+  /* 预览卡片 */
+  --md-editor-preview-card-bg: #17171d;
+  --md-editor-preview-card-border: rgba(240, 240, 242, 0.2);
+  --md-editor-preview-card-divider: rgba(240, 240, 242, 0.16);
+  --md-editor-preview-card-dot-ring: #17171d;
+  --md-editor-preview-card-dot: #6e6eff;        /* 原版是青绿 #63b8a0 */
+  --md-editor-preview-card-head-text: #8b8b95;
+  --md-editor-preview-card-texture-fiber: transparent;  /* 纸纹质感：去掉 */
+  --md-editor-preview-card-texture-grain: transparent;
+
+  /* ===== 2.7 评论区（--comment-*）=====
+     状态色（approved/pending/rejected/hot）是语义色，保持原样不动。 */
+  --comment-form-panel-bg: #15151c;
+  --comment-form-panel-border: rgba(240, 240, 242, 0.16);
+  --comment-grid-bg: #0e0e13;
+
+  --comment-input-bg: rgba(14, 14, 19, 0.92);    /* 同博客 .glass-input：paper 底 */
+  --comment-input-border: rgba(240, 240, 242, 0.16);
+  --comment-input-hover-border: #5c5c66;
+  --comment-input-focus-bg: #15151c;
+  --comment-input-focus-border: #6e6eff;
+  --comment-input-focus-ring-inner: rgba(110, 110, 255, 0.42);
+  --comment-input-focus-ring-outer: rgba(110, 110, 255, 0.16);
+  --comment-input-placeholder: rgba(139, 139, 149, 0.86);
+
+  --comment-danger-bg: rgba(255, 107, 107, 0.16);
+  --comment-danger-border: rgba(255, 107, 107, 0.45);
+  --comment-danger-hover-bg: rgba(255, 107, 107, 0.22);
+
+  --comment-sticky-border-color: rgba(240, 240, 242, 0.16);
+  --comment-sticky-before-bg: #3a3a44;           /* ← --wm-dotted（卡片左侧那根竖条）*/
+  --comment-widget-card-bg: rgba(23, 23, 29, 0.78);
+  --comment-widget-card-before-bg: #3a3a44;
+  --comment-widget-jump-bg: rgba(14, 14, 19, 0.92);
+  --comment-widget-jump-border: rgba(240, 240, 242, 0.16);
+  --comment-status-normal-bg: rgba(21, 21, 28, 0.65);
+
+  /* ===== 2.8 其余零散组件 ===== */
+  /* 热力图：原来是 GitHub 那套绿色，换成博客的电光蓝阶 */
+  --heatmap-bg-color-0: rgba(240, 240, 242, 0.07);
+  --heatmap-bg-color-1: rgba(110, 110, 255, 0.22);
+  --heatmap-bg-color-2: rgba(110, 110, 255, 0.45);
+  --heatmap-bg-color-3: rgba(110, 110, 255, 0.7);
+  --heatmap-bg-color-4: #6e6eff;
+
+  --scrollbar-thumb-bg: #3a3a44;                 /* ← --wm-dotted */
+  --switch-track-off-color: #3a3a44;
+  --switch-thumb-color: #f0f0f2;
+  --select-disabled-bg-color: #15151c;
+  --dialog-confirm-text-color: #ffffff;          /* 确认键底色现在是电光蓝，字要白 */
+
+  --card-focus-ring-outer: rgba(110, 110, 255, 0.16);
+  --tag-pill-border: rgba(240, 240, 242, 0.16);
+  --tag-pill-shadow-inner: 0 0 0 0 transparent;  /* 原版靠内外高光做药丸的厚度，博客是平的 */
+  --tag-pill-shadow-outer: 0 0 0 0 transparent;
+
+  --recent-card-bg: rgba(23, 23, 29, 0.78);
+  --recent-card-before-bg: #3a3a44;
+  --video-provider-badge-bg: rgba(23, 23, 29, 0.86);
+  --color-gallery-scrollbar: rgba(240, 240, 242, 0.22);
+
+  --filter-search-shell-bg: #15151c;
+  --filter-search-input-border: rgba(240, 240, 242, 0.16);
+  --connect-status-checking-bg: rgba(21, 21, 28, 0.65);
+
+  /* 文件管理器的树 */
+  --storage-root-mark-bg: rgba(110, 110, 255, 0.35);
+  --storage-root-mark-border: #6e6eff;
+  --storage-root-row-bg: rgba(21, 21, 28, 0.45);
+  --storage-tree-row-border: rgba(240, 240, 242, 0.14);
+  --storage-tree-row-hover-bg: rgba(240, 240, 242, 0.05);
+  --storage-tree-row-selected-bg: rgba(110, 110, 255, 0.3);
+
+  /* Webhook 引导页 */
+  --webhook-checklist-dot-bg: rgba(110, 110, 255, 0.7);
+  --webhook-guide-code-bg: rgba(21, 21, 28, 0.55);
+  --webhook-guide-hero-bg: rgba(21, 21, 28, 0.45);
+  --webhook-guide-list-code-bg: rgba(21, 21, 28, 0.65);
+  --webhook-guide-section-bg: rgba(23, 23, 29, 0.7);
+  --webhook-topic-chip-bg: rgba(21, 21, 28, 0.6);
+}

@@ -1,0 +1,94 @@
+# ============================================================================
+# Ech0 —— systemd 服务模板
+# ============================================================================
+#
+# Ech0 是一个单文件 Go 二进制，不需要 PHP/Node 之类的运行时，所以单元文件很短：
+# 就是一个跑在非特权用户下的常驻进程。它默认监听 6277。
+#
+# 安装：
+#   1. 建一个系统用户（不要用 root 跑）：
+#        useradd --system --home-dir __ECH0_DATA_DIR__ \
+#                --shell /usr/sbin/nologin __ECH0_USER__
+#   2. 放二进制、建数据目录，属主给这个用户：
+#        install -m 0755 ech0 __ECH0_BIN__
+#        install -d -o __ECH0_USER__ -g __ECH0_USER__ __ECH0_DATA_DIR__
+#   3. 本文件存成 /etc/systemd/system/ech0.service
+#   4. systemctl daemon-reload && systemctl enable --now ech0
+#   5. journalctl -u ech0 -f 看日志
+#
+# ---------------------------------------------------------------------------
+# 占位符：
+#   __ECH0_USER__      跑 Ech0 的系统用户名，例如 ech0
+#   __ECH0_BIN__       二进制绝对路径，例如 /usr/local/bin/ech0
+#                      （放系统路径里；它不该需要写自己所在目录）
+#   __ECH0_DATA_DIR__  数据目录绝对路径，例如 /var/lib/ech0
+#                      数据库、上传的媒体都在这儿，必须可写
+#   __ECH0_ENV_FILE__  （可选）环境变量文件路径，例如 /etc/ech0.env。
+#                      不用就把那一行整行删掉/注释掉
+# ---------------------------------------------------------------------------
+
+[Unit]
+Description=Ech0
+Documentation=https://github.com/lin-snow/Ech0
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__ECH0_USER__
+Group=__ECH0_USER__
+WorkingDirectory=__ECH0_DATA_DIR__
+
+# NOTE 1：Ech0 的额外启动参数（数据目录、监听地址之类）加在这一行后面。
+#   具体支持哪些 flag 以你那个版本的 --help 为准。
+ExecStart=__ECH0_BIN__
+
+# NOTE 2：监听地址必须和 nginx.conf.example 里的 __ECH0_UPSTREAM__ 对得上
+#   （默认 127.0.0.1:6277）。Ech0 默认是绑**所有网卡**的，所以别以为它在回环上：
+#   一定要用防火墙 / 云安全组把 6277 从公网挡掉，只留反代那一层进来。
+#   ⚠️ 别指望用下面加固段里的 IPAddressDeny / IPAddressAllow 来封这个端口 ——
+#      实测那会把本机回源（nginx -> 127.0.0.1:6277）一起弄坏。封端口是防火墙的活。
+
+Restart=on-failure
+RestartSec=5s
+
+# 可选：需要往进程里塞配置或凭据时，写在独立的环境变量文件里，别写进本文件
+# （本文件是要进 git 的）。前面那个 - 表示文件不存在也不算错误。
+#EnvironmentFile=-__ECH0_ENV_FILE__
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ech0
+
+# ---- 加固 ----
+# NOTE 3：ProtectSystem=strict 会把整个文件系统挂成只读，只有 ReadWritePaths
+#   列出来的地方可写。Ech0 的数据（库 + 上传的媒体）都在数据目录里，所以那一行
+#   必须留着；要是你把上传目录、或者别的什么挪到别处去了，往 ReadWritePaths
+#   里再补一个路径，否则会以「写入失败」的形式炸掉。
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__ECH0_DATA_DIR__
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+UMask=0027
+
+# NOTE 4：Ech0 监听的是 >1024 的端口，不需要任何 capability，所以这里清空。
+#   如果你非要让它直接占 80/443，就得把这行改成
+#   AmbientCapabilities=CAP_NET_BIND_SERVICE（并保留 CapabilityBoundingSet 里的它）。
+CapabilityBoundingSet=
+
+# NOTE 5：还可以再上 MemoryDenyWriteExecute=true（Go 一般不需要可写可执行内存，
+#   但用 cgo 或插件的构建可能不兼容）——觉得有把握再加，加了记得重启验证一下。
+
+[Install]
+WantedBy=multi-user.target

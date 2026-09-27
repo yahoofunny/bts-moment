@@ -1,0 +1,710 @@
+/* ==========================================================================
+   bts-moment —— 给 Ech0 换上「暗色玻璃 + 亮色纸面」的一层皮
+   注入位置：面板 → 系统设置 → 自定义 CSS
+   数值全部取自配套博客的 src/styles/global.css
+
+   为什么通篇都在改 CSS 变量而不是写选择器：
+   Ech0 的前端是 UnoCSS 原子类（v5.7.0 的主 CSS 只有 412 个类名 token，
+   语义化的组件类只有 .widget / .x-scrollbar / .route-progress__bar 三个）。
+   原子类最终都会落到 --color-* / --radius-* / --font-* 这些变量上，
+   所以「盖变量」才是唯一的杠杆；按类名去写样式是写不动的。
+
+   变量盖不到的是**懒加载 chunk**：HomeView / EchoView / TheMdEditor /
+   floating-vue 的样式在主 CSS 里一行都没有，全在各自的 chunk 里，
+   颜色和圆角都是不走变量的字面值（--md-* / --comment-* / --heatmap-* 等）。
+   那些只能逐个点名，也是本文件绝大部分篇幅的由来。
+
+   ⚠️ 本文件是 build.py 生成的，不要手改。
+     改暗色数值 → tokens.css ；改第 3 节往后 → tail.css ；然后重跑 build.py。
+
+   结构：
+     :root:root                      字体、直角（与主题无关）
+     :root:root.dark                 博客暗色 + 粒子
+     :root:root.light, :root:root.sunny
+                                     博客亮色，无粒子
+   ========================================================================== */
+
+/* ---------- 1. 字体：Oswald + Courier Prime ----------
+   仓库里 fonts/ 带了这三个文件（两个字族都是 OFL-1.1，
+   许可全文在同目录的 OFL-*.txt）。把 fonts/ 放到站点根目录即可，
+   或者用 `python build.py <你的字体目录URL>` 重新构建换成外链。 */
+@font-face {
+  font-family: "Oswald";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/oswald-var.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Courier Prime";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/courier-prime-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Courier Prime";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/courier-prime-700.woff2") format("woff2");
+}
+
+/* ---------- 2-A 与主题无关的 token ----------
+   优先级说明：:root:root 是 (0,2,0)，和 Ech0 自带的 :root.dark / :root.light
+   / :root.sunny 打平；我们的 <style> 是运行时最后插进 <head> 的，同优先级靠后者胜。
+   .dark / .light / .sunny 那份再多一个类，是 (0,3,0)，稳过。 */
+:root:root {
+/* ===== 2.2 字体 =====
+     博客把字体分三档：--font-display(Oswald) / --font-mono(Courier Prime) / --font-body(系统栈)。
+     Ech0 这边有**两套**变量名要一起盖：
+       --font-family-* 是它自己组件的，--font-* 是 UnoCSS 主题的。
+     漏掉任何一套，就会有一半元素还是默认字体。 */
+  --font-family-display:
+    "Oswald", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-family-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-family-mono:
+    "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-family-handwritten: "Oswald", "PingFang SC", sans-serif;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono:
+    "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ===== 2.3 直角 =====
+     博客全站零圆角，卡片是硬边方块。Ech0 一共 19 处 border-radius，
+     其中 10 处走这几个变量，剩下的是第三方库内部（见文件末尾 2.9）。
+     --btn-radius 本来就写成 var(--radius-md)，跟着一起归零。 */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-DEFAULT: 0;
+  --border-radius: 0;
+}
+
+/* ---------- 2-B 博客暗色（默认主题）---------- */
+:root:root.dark {
+color-scheme: dark;
+
+  /* ===== 2.1 骨架色 ← --wm-paper / --wm-card / --wm-panel ===== */
+  --color-bg-canvas: #0e0e13;
+  --color-bg-surface: #17171d;
+  --color-bg-muted: #15151c;
+  --color-chrome-theme: #0e0e13;
+
+  /* 文字 ← --wm-ink / --wm-ink-soft / --wm-muted */
+  --color-text-primary: #f0f0f2;
+  --color-text-secondary: #b9b9c2;
+  --color-text-muted: #8b8b95;
+
+  /* 分隔线 ← --wm-line / --wm-faint */
+  --color-border-subtle: rgba(240, 240, 242, 0.16);
+  --color-border-strong: #5c5c66;
+
+  /* 强调色 = 博客那抹电光蓝（暗色版 --wm-primary） */
+  --color-accent: #6e6eff;
+  --color-accent-soft: rgba(110, 110, 255, 0.18);
+  --color-focus-ring: rgba(110, 110, 255, 0.42);
+  --color-danger: #ff6b6b;
+
+  --color-nav-active-bg: rgba(110, 110, 255, 0.18);
+  --color-nav-active-text: #f0f0f2;
+  --color-overlay-strong: rgba(6, 6, 10, 0.72);
+
+  --selection-bg-color: #6e6eff;
+  --selection-text-color: #ffffff;
+
+  /* ===== 2.4 阴影 =====
+     博客不用柔和光晕，只有硬边投影：hair(静态) / lift(悬浮) / press(按下)。 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 14px 28px -14px rgba(110, 110, 255, 0.3);
+  --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+
+  /* ===== 2.5 Markdown 正文（--md-* 前半段：渲染结果）=====
+     Ech0 自带的是暖棕 + One Dark 代码块；博客是 paper/panel + 电光蓝。 */
+  --md-code-bg: #15151c;                        /* ← --wm-panel */
+  --md-code-bg-transparent: #15151c00;
+  --md-code-text: #b9b9c2;                      /* ← --wm-ink-soft */
+  --md-code-border: rgba(240, 240, 242, 0.16);  /* ← --wm-line */
+  --md-code-header-bg: #0e0e13;                 /* ← --wm-paper */
+  --md-code-header-border: rgba(240, 240, 242, 0.16);
+  --md-code-lang-text: #8b8b95;                 /* ← --wm-muted */
+  --md-code-action-text: #8b8b95;
+  --md-code-action-hover-text: #f0f0f2;
+  --md-code-action-hover-bg: rgba(110, 110, 255, 0.18);
+  --md-code-action-border: rgba(240, 240, 242, 0.16);
+  --md-code-action-copied-text: #6e6eff;        /* 原来是 One Dark 的绿 #98c379 */
+  --md-code-toggle-border: rgba(240, 240, 242, 0.16);
+  --md-code-toggle-hover-border: #6e6eff;
+
+  /* 行内码 = 博客 .prose code：panel 底 + 电光蓝字 + 点线框 */
+  --md-inline-code-bg: #15151c;
+  --md-inline-code-text: #6e6eff;
+
+  --md-thead-bg: #15151c;                       /* 博客 .prose table th 同款 */
+  --md-table-bg: rgba(23, 23, 29, 0.86);
+  --md-table-border: rgba(240, 240, 242, 0.16);
+  --md-table-row-border: rgba(240, 240, 242, 0.16);
+  --md-tbody-hover-bg: rgba(110, 110, 255, 0.1); /* 原来是琥珀色 #e7b0631a */
+
+  /* ===== 2.6 Markdown 编辑器（--md-editor-*）=====
+     这块在原版里是一整套暖棕「木质桌面」质感，跟博客差得最远。 */
+  --md-editor-backdrop-color: rgba(6, 6, 10, 0.72);
+  --md-editor-actions-ring-color: rgba(240, 240, 242, 0.16);
+  --md-editor-actions-hover-bg: rgba(110, 110, 255, 0.18);
+  --md-editor-actions-hover-border: #6e6eff;
+
+  --md-editor-mini-bg: #17171d;                 /* ← --wm-card */
+  --md-editor-mini-border: rgba(240, 240, 242, 0.16);
+  --md-editor-mini-btn-bg: #15151c;
+  --md-editor-mini-btn-border: rgba(240, 240, 242, 0.16);
+  --md-editor-mini-btn-hover-bg: rgba(110, 110, 255, 0.18);
+  --md-editor-mini-shell-bg: #15151c;
+  --md-editor-mini-shell-border: rgba(240, 240, 242, 0.16);
+  --md-editor-mode-toggle-bg: #15151c;
+  --md-editor-mode-toggle-hover-bg: rgba(110, 110, 255, 0.18);
+
+  /* 全屏编辑时的网格纸背景 —— 博客没有纸纹，只留极淡的网格线 */
+  --md-editor-full-grid-bg: #0e0e13;
+  --md-editor-full-grid-frame: rgba(240, 240, 242, 0.16);
+  --md-editor-full-grid-line: rgba(240, 240, 242, 0.07);
+
+  /* 预览卡片 */
+  --md-editor-preview-card-bg: #17171d;
+  --md-editor-preview-card-border: rgba(240, 240, 242, 0.2);
+  --md-editor-preview-card-divider: rgba(240, 240, 242, 0.16);
+  --md-editor-preview-card-dot-ring: #17171d;
+  --md-editor-preview-card-dot: #6e6eff;        /* 原版是青绿 #63b8a0 */
+  --md-editor-preview-card-head-text: #8b8b95;
+  --md-editor-preview-card-texture-fiber: transparent;  /* 纸纹质感：去掉 */
+  --md-editor-preview-card-texture-grain: transparent;
+
+  /* ===== 2.7 评论区（--comment-*）=====
+     状态色（approved/pending/rejected/hot）是语义色，保持原样不动。 */
+  --comment-form-panel-bg: #15151c;
+  --comment-form-panel-border: rgba(240, 240, 242, 0.16);
+  --comment-grid-bg: #0e0e13;
+
+  --comment-input-bg: rgba(14, 14, 19, 0.92);    /* 同博客 .glass-input：paper 底 */
+  --comment-input-border: rgba(240, 240, 242, 0.16);
+  --comment-input-hover-border: #5c5c66;
+  --comment-input-focus-bg: #15151c;
+  --comment-input-focus-border: #6e6eff;
+  --comment-input-focus-ring-inner: rgba(110, 110, 255, 0.42);
+  --comment-input-focus-ring-outer: rgba(110, 110, 255, 0.16);
+  --comment-input-placeholder: rgba(139, 139, 149, 0.86);
+
+  --comment-danger-bg: rgba(255, 107, 107, 0.16);
+  --comment-danger-border: rgba(255, 107, 107, 0.45);
+  --comment-danger-hover-bg: rgba(255, 107, 107, 0.22);
+
+  --comment-sticky-border-color: rgba(240, 240, 242, 0.16);
+  --comment-sticky-before-bg: #3a3a44;           /* ← --wm-dotted（卡片左侧那根竖条）*/
+  --comment-widget-card-bg: rgba(23, 23, 29, 0.78);
+  --comment-widget-card-before-bg: #3a3a44;
+  --comment-widget-jump-bg: rgba(14, 14, 19, 0.92);
+  --comment-widget-jump-border: rgba(240, 240, 242, 0.16);
+  --comment-status-normal-bg: rgba(21, 21, 28, 0.65);
+
+  /* ===== 2.8 其余零散组件 ===== */
+  /* 热力图：原来是 GitHub 那套绿色，换成博客的电光蓝阶 */
+  --heatmap-bg-color-0: rgba(240, 240, 242, 0.07);
+  --heatmap-bg-color-1: rgba(110, 110, 255, 0.22);
+  --heatmap-bg-color-2: rgba(110, 110, 255, 0.45);
+  --heatmap-bg-color-3: rgba(110, 110, 255, 0.7);
+  --heatmap-bg-color-4: #6e6eff;
+
+  --scrollbar-thumb-bg: #3a3a44;                 /* ← --wm-dotted */
+  --switch-track-off-color: #3a3a44;
+  --switch-thumb-color: #f0f0f2;
+  --select-disabled-bg-color: #15151c;
+  --dialog-confirm-text-color: #ffffff;          /* 确认键底色现在是电光蓝，字要白 */
+
+  --card-focus-ring-outer: rgba(110, 110, 255, 0.16);
+  --tag-pill-border: rgba(240, 240, 242, 0.16);
+  --tag-pill-shadow-inner: 0 0 0 0 transparent;  /* 原版靠内外高光做药丸的厚度，博客是平的 */
+  --tag-pill-shadow-outer: 0 0 0 0 transparent;
+
+  --recent-card-bg: rgba(23, 23, 29, 0.78);
+  --recent-card-before-bg: #3a3a44;
+  --video-provider-badge-bg: rgba(23, 23, 29, 0.86);
+  --color-gallery-scrollbar: rgba(240, 240, 242, 0.22);
+
+  --filter-search-shell-bg: #15151c;
+  --filter-search-input-border: rgba(240, 240, 242, 0.16);
+  --connect-status-checking-bg: rgba(21, 21, 28, 0.65);
+
+  /* 文件管理器的树 */
+  --storage-root-mark-bg: rgba(110, 110, 255, 0.35);
+  --storage-root-mark-border: #6e6eff;
+  --storage-root-row-bg: rgba(21, 21, 28, 0.45);
+  --storage-tree-row-border: rgba(240, 240, 242, 0.14);
+  --storage-tree-row-hover-bg: rgba(240, 240, 242, 0.05);
+  --storage-tree-row-selected-bg: rgba(110, 110, 255, 0.3);
+
+  /* Webhook 引导页 */
+  --webhook-checklist-dot-bg: rgba(110, 110, 255, 0.7);
+  --webhook-guide-code-bg: rgba(21, 21, 28, 0.55);
+  --webhook-guide-hero-bg: rgba(21, 21, 28, 0.45);
+  --webhook-guide-list-code-bg: rgba(21, 21, 28, 0.65);
+  --webhook-guide-section-bg: rgba(23, 23, 29, 0.7);
+  --webhook-topic-chip-bg: rgba(21, 21, 28, 0.6);
+
+  /* ===== 2.9 桥接变量（给下面第 3、4 节用）===== */
+  --bt-dotted: #3a3a44;            /* ← --wm-dotted */
+  --bt-primary-soft: #8f8fff;      /* ← --wm-primary-soft */
+}
+
+/* ---------- 2-C 博客亮色 ----------
+   Ech0 的 sunny 也归到这里 —— 博客只有明暗两套，
+   sunny 如果留着 Ech0 自己的暖色原样，会跟旁边两个状态完全不是一套语言。 */
+:root:root.light,
+:root:root.sunny {
+color-scheme: light;
+
+  /* ===== 2.1 骨架色 ← --wm-paper / --wm-card / --wm-panel ===== */
+  --color-bg-canvas: #fdfdfd;
+  --color-bg-surface: #ffffff;
+  --color-bg-muted: #f5f5f5;
+  --color-chrome-theme: #fdfdfd;
+
+  /* 文字 ← --wm-ink / --wm-ink-soft / --wm-muted */
+  --color-text-primary: #111111;
+  --color-text-secondary: #4a4a4a;
+  --color-text-muted: #8a8a8a;
+
+  /* 分隔线 ← --wm-line / --wm-faint */
+  --color-border-subtle: rgba(17, 17, 17, 0.16);
+  --color-border-strong: #b9b9b9;
+
+  /* 强调色 = 博客那抹电光蓝（暗色版 --wm-primary） */
+  --color-accent: #0000f2;
+  --color-accent-soft: rgba(0, 0, 242, 0.18);
+  --color-focus-ring: rgba(0, 0, 242, 0.42);
+  --color-danger: #d92d20;
+
+  --color-nav-active-bg: rgba(0, 0, 242, 0.18);
+  --color-nav-active-text: #111111;
+  --color-overlay-strong: rgba(255, 255, 255, 0.72);
+
+  --selection-bg-color: #0000f2;
+  --selection-text-color: #ffffff;
+
+  /* ===== 2.4 阴影 =====
+     博客不用柔和光晕，只有硬边投影：hair(静态) / lift(悬浮) / press(按下)。 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 14px 28px -14px rgba(0, 0, 242, 0.3);
+  --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+
+  /* ===== 2.5 Markdown 正文（--md-* 前半段：渲染结果）=====
+     Ech0 自带的是暖棕 + One Dark 代码块；博客是 paper/panel + 电光蓝。 */
+  --md-code-bg: #f5f5f5;                        /* ← --wm-panel */
+  --md-code-bg-transparent: #f5f5f500;
+  --md-code-text: #4a4a4a;                      /* ← --wm-ink-soft */
+  --md-code-border: rgba(17, 17, 17, 0.16);  /* ← --wm-line */
+  --md-code-header-bg: #fdfdfd;                 /* ← --wm-paper */
+  --md-code-header-border: rgba(17, 17, 17, 0.16);
+  --md-code-lang-text: #8a8a8a;                 /* ← --wm-muted */
+  --md-code-action-text: #8a8a8a;
+  --md-code-action-hover-text: #111111;
+  --md-code-action-hover-bg: rgba(0, 0, 242, 0.18);
+  --md-code-action-border: rgba(17, 17, 17, 0.16);
+  --md-code-action-copied-text: #0000f2;        /* 原来是 One Dark 的绿 #98c379 */
+  --md-code-toggle-border: rgba(17, 17, 17, 0.16);
+  --md-code-toggle-hover-border: #0000f2;
+
+  /* 行内码 = 博客 .prose code：panel 底 + 电光蓝字 + 点线框 */
+  --md-inline-code-bg: #f5f5f5;
+  --md-inline-code-text: #0000f2;
+
+  --md-thead-bg: #f5f5f5;                       /* 博客 .prose table th 同款 */
+  --md-table-bg: rgba(255, 255, 255, 0.86);
+  --md-table-border: rgba(17, 17, 17, 0.16);
+  --md-table-row-border: rgba(17, 17, 17, 0.16);
+  --md-tbody-hover-bg: rgba(0, 0, 242, 0.1); /* 原来是琥珀色 #e7b0631a */
+
+  /* ===== 2.6 Markdown 编辑器（--md-editor-*）=====
+     这块在原版里是一整套暖棕「木质桌面」质感，跟博客差得最远。 */
+  --md-editor-backdrop-color: rgba(255, 255, 255, 0.72);
+  --md-editor-actions-ring-color: rgba(17, 17, 17, 0.16);
+  --md-editor-actions-hover-bg: rgba(0, 0, 242, 0.18);
+  --md-editor-actions-hover-border: #0000f2;
+
+  --md-editor-mini-bg: #ffffff;                 /* ← --wm-card */
+  --md-editor-mini-border: rgba(17, 17, 17, 0.16);
+  --md-editor-mini-btn-bg: #f5f5f5;
+  --md-editor-mini-btn-border: rgba(17, 17, 17, 0.16);
+  --md-editor-mini-btn-hover-bg: rgba(0, 0, 242, 0.18);
+  --md-editor-mini-shell-bg: #f5f5f5;
+  --md-editor-mini-shell-border: rgba(17, 17, 17, 0.16);
+  --md-editor-mode-toggle-bg: #f5f5f5;
+  --md-editor-mode-toggle-hover-bg: rgba(0, 0, 242, 0.18);
+
+  /* 全屏编辑时的网格纸背景 —— 博客没有纸纹，只留极淡的网格线 */
+  --md-editor-full-grid-bg: #fdfdfd;
+  --md-editor-full-grid-frame: rgba(17, 17, 17, 0.16);
+  --md-editor-full-grid-line: rgba(17, 17, 17, 0.07);
+
+  /* 预览卡片 */
+  --md-editor-preview-card-bg: #ffffff;
+  --md-editor-preview-card-border: rgba(17, 17, 17, 0.2);
+  --md-editor-preview-card-divider: rgba(17, 17, 17, 0.16);
+  --md-editor-preview-card-dot-ring: #ffffff;
+  --md-editor-preview-card-dot: #0000f2;        /* 原版是青绿 #63b8a0 */
+  --md-editor-preview-card-head-text: #8a8a8a;
+  --md-editor-preview-card-texture-fiber: transparent;  /* 纸纹质感：去掉 */
+  --md-editor-preview-card-texture-grain: transparent;
+
+  /* ===== 2.7 评论区（--comment-*）=====
+     状态色（approved/pending/rejected/hot）是语义色，保持原样不动。 */
+  --comment-form-panel-bg: #f5f5f5;
+  --comment-form-panel-border: rgba(17, 17, 17, 0.16);
+  --comment-grid-bg: #fdfdfd;
+
+  --comment-input-bg: rgba(253, 253, 253, 0.92);    /* 同博客 .glass-input：paper 底 */
+  --comment-input-border: rgba(17, 17, 17, 0.16);
+  --comment-input-hover-border: #b9b9b9;
+  --comment-input-focus-bg: #f5f5f5;
+  --comment-input-focus-border: #0000f2;
+  --comment-input-focus-ring-inner: rgba(0, 0, 242, 0.42);
+  --comment-input-focus-ring-outer: rgba(0, 0, 242, 0.16);
+  --comment-input-placeholder: rgba(138, 138, 138, 0.86);
+
+  --comment-danger-bg: rgba(217, 45, 32, 0.16);
+  --comment-danger-border: rgba(217, 45, 32, 0.45);
+  --comment-danger-hover-bg: rgba(217, 45, 32, 0.22);
+
+  --comment-sticky-border-color: rgba(17, 17, 17, 0.16);
+  --comment-sticky-before-bg: #c9c9c9;           /* ← --wm-dotted（卡片左侧那根竖条）*/
+  --comment-widget-card-bg: rgba(255, 255, 255, 0.78);
+  --comment-widget-card-before-bg: #c9c9c9;
+  --comment-widget-jump-bg: rgba(253, 253, 253, 0.92);
+  --comment-widget-jump-border: rgba(17, 17, 17, 0.16);
+  --comment-status-normal-bg: rgba(245, 245, 245, 0.65);
+
+  /* ===== 2.8 其余零散组件 ===== */
+  /* 热力图：原来是 GitHub 那套绿色，换成博客的电光蓝阶 */
+  --heatmap-bg-color-0: rgba(17, 17, 17, 0.07);
+  --heatmap-bg-color-1: rgba(0, 0, 242, 0.22);
+  --heatmap-bg-color-2: rgba(0, 0, 242, 0.45);
+  --heatmap-bg-color-3: rgba(0, 0, 242, 0.7);
+  --heatmap-bg-color-4: #0000f2;
+
+  --scrollbar-thumb-bg: #c9c9c9;                 /* ← --wm-dotted */
+  --switch-track-off-color: #c9c9c9;
+  --switch-thumb-color: #ffffff;
+  --select-disabled-bg-color: #f5f5f5;
+  --dialog-confirm-text-color: #ffffff;          /* 确认键底色现在是电光蓝，字要白 */
+
+  --card-focus-ring-outer: rgba(0, 0, 242, 0.16);
+  --tag-pill-border: rgba(17, 17, 17, 0.16);
+  --tag-pill-shadow-inner: 0 0 0 0 transparent;  /* 原版靠内外高光做药丸的厚度，博客是平的 */
+  --tag-pill-shadow-outer: 0 0 0 0 transparent;
+
+  --recent-card-bg: rgba(255, 255, 255, 0.78);
+  --recent-card-before-bg: #c9c9c9;
+  --video-provider-badge-bg: rgba(255, 255, 255, 0.86);
+  --color-gallery-scrollbar: rgba(17, 17, 17, 0.22);
+
+  --filter-search-shell-bg: #f5f5f5;
+  --filter-search-input-border: rgba(17, 17, 17, 0.16);
+  --connect-status-checking-bg: rgba(245, 245, 245, 0.65);
+
+  /* 文件管理器的树 */
+  --storage-root-mark-bg: rgba(0, 0, 242, 0.35);
+  --storage-root-mark-border: #0000f2;
+  --storage-root-row-bg: rgba(245, 245, 245, 0.45);
+  --storage-tree-row-border: rgba(17, 17, 17, 0.14);
+  --storage-tree-row-hover-bg: rgba(17, 17, 17, 0.05);
+  --storage-tree-row-selected-bg: rgba(0, 0, 242, 0.3);
+
+  /* Webhook 引导页 */
+  --webhook-checklist-dot-bg: rgba(0, 0, 242, 0.7);
+  --webhook-guide-code-bg: rgba(245, 245, 245, 0.55);
+  --webhook-guide-hero-bg: rgba(245, 245, 245, 0.45);
+  --webhook-guide-list-code-bg: rgba(245, 245, 245, 0.65);
+  --webhook-guide-section-bg: rgba(255, 255, 255, 0.7);
+  --webhook-topic-chip-bg: rgba(245, 245, 245, 0.6);
+
+  /* ===== 2.9 桥接变量（给下面第 3、4 节用）===== */
+  --bt-dotted: #c9c9c9;            /* ← --wm-dotted */
+  --bt-primary-soft: #2b2bf5;      /* ← --wm-primary-soft */
+}
+
+/* ---------- 3. 元素级微调 ----------
+   从这里开始一律走 var()，这样明暗两套自动跟着 2.1 / 2.2 走，
+   不需要在两边各写一遍。 */
+
+/* 正文 ← 博客 --font-body（系统栈，中文可读性优先） */
+:root:root body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* 标题走 Oswald —— 博客 --font-display 的用法（h1~h4 + .wm-btn） */
+:root:root h1,
+:root:root h2,
+:root:root h3,
+:root:root h4 {
+  font-family: "Oswald", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Markdown 正文 —— 对齐博客 .prose 的三条签名细节。
+   EchoView / TheMdEditor 的样式在懒加载 chunk 里，容器类名是 .echo-markdown。 */
+:root:root .echo-markdown :not(pre) > code {
+  border: 1px dotted var(--bt-dotted); /* 博客 .prose code: 1px dotted */
+  border-radius: 0;
+}
+:root:root .echo-markdown blockquote {
+  border-left: 3px solid var(--color-accent); /* 博客 .prose blockquote */
+  color: var(--color-text-muted);             /* 原版用 --color-text-secondary，博客更淡 */
+  font-style: normal;
+}
+
+/* 滚动条：6px + 直角 + 悬停变电光蓝（博客 ::-webkit-scrollbar 同款） */
+:root:root ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+:root:root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+:root:root ::-webkit-scrollbar-thumb {
+  background: var(--bt-dotted);
+  border-radius: 0;
+}
+:root:root ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+/* ---------- 4. 按路由懒加载的 CSS：变量盖不到的部分 ----------
+   Ech0 把 HomeView / EchoView / TheMdEditor / floating-vue 的样式拆进了**懒加载 chunk**
+   （主 CSS 文件里一行都没有）。那些文件里的颜色和圆角是**写死的字面值**，
+   变量层够不着，只能按类名点名。
+   好在这些类名都是语义化的（.palette__* / .comment-* / .v-popper-* / .echo-markdown），
+   且**不带 scoped 的 data-v 哈希**，所以 Ech0 升级换 hash 也不会失效。
+   前缀 :root:root 是把优先级顶到 0,3,0 以上，压过它们自带的 0,2,0。 */
+
+/* 🔴 floating-vue 的下拉菜单是写死的**白底黑字**（主题切换 / 用户菜单 / 语言切换）。
+   暗色站里点一下会弹出一个白框，是最扎眼的一处漏网。 */
+:root:root .v-popper--theme-dropdown .v-popper__inner {
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  box-shadow: var(--shadow-sm);
+}
+:root:root .v-popper--theme-dropdown .v-popper__arrow-inner {
+  border-color: var(--color-bg-surface);
+}
+:root:root .v-popper--theme-dropdown .v-popper__arrow-outer {
+  border-color: var(--color-border-subtle);
+}
+
+/* 悬浮提示：原版是半透明黑，改成博客的面板色 + 直角 */
+:root:root .v-popper--theme-tooltip .v-popper__inner {
+  color: var(--color-text-primary);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+}
+:root:root .v-popper--theme-tooltip .v-popper__arrow-outer {
+  border-color: var(--color-bg-muted);
+}
+
+/* 评论区的链接悬停是天蓝 #0ea5e9，和电光蓝主色不是一回事 */
+:root:root .comment-author-link:hover,
+:root:root .comment-reply-btn:hover,
+:root:root .comment-reply-ref:hover {
+  color: var(--bt-primary-soft);
+}
+
+/* ---------- 5. 圆角一次性收口 ----------
+   上面 2.0 只盖住了主 CSS 里走变量的那几处圆角；**懒加载 chunk 里还有近 30 处是写死的**
+   （8px / 7px / 6px / 5px / .5rem / .35rem …，散在 HomeView / EchoView / ChatView / TheMdEditor）。
+   与其逐个点名（脆、且会漏），不如在整个应用容器上收一次。
+   :where() 本身不贡献优先级，所以这条的权重就是 #app 的 (1,0,0) ——
+   比 Ech0 任何基于类名的 (0,x,0) 都高，不需要 !important。
+   排除 .rounded-full 和圆形头像：那是**约定俗成的圆形**（头像、状态点、
+   TheCommentManager 里的 .comment-detail__avatar 用的是 999px），变成方块才叫坏掉。
+   博客自己也有例外 —— 语言切换器就是 999px 药丸。 */
+:root:root #app :where(:not(.rounded-full):not(.comment-detail__avatar)) {
+  border-radius: 0;
+}
+
+/* ---------- 6. 粒子壁纸（iframe 由 custom_js 注入）----------
+   博客那边是 <iframe id="wm-particle" src="/bg-particle/index.html" z-index="-1">，
+   并且只有 html.dark 才 display:block。这里照抄这个开关。
+
+   z-index 用 1 而不是博客的 -1：Ech0 给 html 和 body **都**写了
+   background: var(--color-bg-canvas)，body 那层是当普通元素画的（层级 3），
+   z-index:-1 会被它盖住；z-index:1 则稳稳压在 body 之上、正文之下。
+   真正会挡住粒子的是 .app-stack（z-index:2 的层叠上下文）**内部**那几个
+   铺满视口的容器，见下面那条。 */
+#wm-particle {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  border: 0;
+  pointer-events: none;
+  display: none;
+}
+:root:root.dark #wm-particle {
+  display: block;
+}
+
+/* 把页面容器的底色打穿，粒子才透得出来。
+   .home-page / .hairline-chat / .zen-view 都有一层铺满视口的
+   background: var(--color-bg-canvas)。只点这三个 ——
+   .palette / .chat-launcher 是正经的整屏浮层，.echo-header-sticky 要挡住
+   滚过去的正文，都不能动。 */
+:root:root.dark .home-page,
+:root:root.dark .hairline-chat,
+:root:root.dark .zen-view {
+  background: transparent !important;
+}
+
+/* ---------- 7. 主页顶上那块自我介绍（用户点名要删）----------
+   就是 HomeView 里的 <section class="home-banner">：
+   `欢迎光临`（面板里的 homeBio.tagline）+ `Powered by Ech0`（写死的）+ 一个 about 图标。
+   为什么不用面板设置解决：tagline 能在面板里清空，但 Powered by Ech0 是硬编码的，
+   清不干净，所以整块藏掉。 */
+:root:root .home-banner {
+  display: none;
+}
+
+/* ---------- 8. 主页右下角那行版本号（用户点名要删）----------
+   HomeView 侧栏里的
+   <a href="https://github.com/lin-snow/Ech0" class="home-aside__version"> version: 5.7.0</a>
+   整行拿掉。注意它同时是页面上唯一一条指向上游的链接 —— 删掉之后
+   AGPL §13 要求的「源码可得」就只剩仓库里那份 NOTICE 了，
+   需要在别处补一条源码链接（见 README 的「合规」一节）。 */
+:root:root .home-aside__version {
+  display: none;
+}
+
+/* ---------- 9. 玻璃层（暗色专属）----------
+   配方来自 liquid-glasses-template-for-blog，它只有四个旋钮：
+     填充 rgba(255,255,255,.06) / 描边 1px rgba(255,255,255,.1)
+     / blur(16px) / 圆角 16px
+   糅合 = 旋钮换成博客 token、圆角归零（第 5 节已全局归零）：
+     填充 --wm-card 的 58% / 描边 --wm-line / blur(14px)
+   照模板的方子，**不加 saturate()** —— 加了会明显发灰。
+
+   ⚠️ 两个实测结论，不是推断：
+   1. backdrop-filter **能**采样到粒子 iframe。粒子是跨源 iframe，
+      Chrome 在这块历史上有过 bug，所以专门做了对照实验：blur(4px) 时
+      粒子仍清晰可见、只是变虚 —— 证明确实在采样。
+   2. 但粒子只有 1px 上下，blur 一大就整个糊没了（blur(18px) 直接看不见）。
+      所以**模糊半径是个真·设计旋钮**，不是随手填的：面板 14px、顶栏 20px
+      是「糊得动背景、又留得住粒子」的位置。
+
+   为什么用 inset box-shadow 画描边而不是 border：
+   .echo-header-sticky 这类元素原本没有 border，直接加会挤掉 2px 内容高度，
+   滚动时能看到轻微跳动。inset shadow 不占布局，零位移。
+
+   亮色刻意**不给玻璃** —— 那边粒子是关的，玻璃只会让纸面发脏。 */
+:root:root.dark {
+  --bt-glass-fill: rgba(23, 23, 29, 0.58);    /* ← --wm-card #17171d 的 58% */
+  --bt-glass-line: rgba(240, 240, 242, 0.16); /* ← --wm-line */
+  --bt-glass-blur: blur(14px);
+}
+
+:root:root.dark .echo-header-sticky,
+:root:root.dark .extension-card-shell,
+:root:root.dark .extension-card-shell__header,
+:root:root.dark .home-filter__search-shell,
+:root:root.dark .home-filter__kbd-hint,
+:root:root.dark .home-sidebar-nav__link--active {
+  background: var(--bt-glass-fill) !important;
+  backdrop-filter: var(--bt-glass-blur);
+  -webkit-backdrop-filter: var(--bt-glass-blur);
+  box-shadow: inset 0 0 0 1px var(--bt-glass-line);
+}
+
+/* 侧栏当前项：**只能点 --active 这个修饰类**。
+   Ech0 给四个导航项**都**挂了 router-link-active / router-link-exact-active
+   （还在 DOM 里渲染了两份：--mobile 一份、桌面轨道一份，靠 CSS 显隐），
+   按 router-link-active 写会把四项全点亮。真正的开关是 --active。
+
+   顶栏：玻璃模板的签名元素就是那条半透明 + blur(20px) 的 header。
+   Ech0 的顶栏是 sticky 的，正文会从下面滚过去，所以不透明也成立，
+   但玻璃更贴模板 —— 而且它上面没有粒子，可以放心用更大的半径。 */
+:root:root.dark .home-header {
+  background: var(--bt-glass-fill) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 -1px 0 var(--bt-glass-line);
+}
+
+/* ---------- 10. 顶栏六栏目 ----------
+   元素由 custom.js 注入（见那里的 CONFIG.nav），这里只管长相。
+   数值照抄博客的 .nav-link（global.css:159）：Courier Prime、0.7rem、700、
+   大写、letter-spacing .12em —— 这一段就是「微标签」那一档字体。
+
+   ⚠️ 三个坑，全部是实测踩出来的：
+
+   1. **必须自己抬层。** 粒子 iframe 是 position:fixed; inset:0; z-index:1，
+      而它的 body 是不透明的 #060914 —— 暗色下它就是一块盖住整个视口的
+      深色板。普通文档流里的元素 z-index 是 auto，会被它整个盖住。
+      .app-stack 是 z-index:2 所以正文没事，这里跟着抬到 3。
+      （亮色下粒子是 display:none，所以**只在暗色里消失**，特别容易看漏。）
+
+   2. **不做 position:fixed。** 博客的 .wm-header 是 fixed（global.css:149），
+      但 Ech0 自己顶上已经有一个 sticky 的 .home-header 了，再来一个 fixed
+      的会直接压在一起。放在正常文档流里把 #app 往下挤，最稳。
+
+   3. **不能 point 错元素。** #bt-nav 是 id，特异性 (1,0,0) 已经压过 :root:root
+      的 (0,2,0)，所以下面不必再套 :root:root。 */
+#bt-nav {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6rem;
+  padding: 0.62rem 1rem;
+  font-family: "Courier Prime", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  box-sizing: border-box;
+}
+
+#bt-nav a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+#bt-nav a:hover { color: var(--color-accent); }
+#bt-nav a[aria-current] { color: var(--color-accent); }
+
+/* 暗色：跟第 9 节同源的一块玻璃，底边一条发丝线。 */
+:root:root.dark #bt-nav {
+  background: var(--bt-glass-fill);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 -1px 0 var(--bt-glass-line);
+}
+
+/* 亮色：不透明纸面 + 点线，跟博客 .wm-header 的 border-bottom 一致。 */
+:root:root.light #bt-nav,
+:root:root.sunny #bt-nav {
+  background: var(--color-bg-canvas);
+  border-bottom: 1px dotted var(--bt-dotted);
+}

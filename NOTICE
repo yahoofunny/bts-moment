@@ -1,0 +1,67 @@
+NOTICE
+======
+
+本仓库（bts-moment）是第三方主题与部署套件，**不是 Ech0 的官方发行版**，
+也不包含 Ech0 的任何源代码或二进制。
+
+
+上游
+----
+
+  项目：    Ech0 —— 自托管的一人微博客
+  仓库：    https://github.com/lin-snow/Ech0
+  许可：    AGPL-3.0-or-later
+  版权：    Ech0 / Copyright (C) 2025-2026 L1nSn0w and contributors.
+  本仓库针对的版本：v5.7.0（2026-08-28 发布）
+
+
+本仓库改了什么（AGPL-3.0 §5(a) 要求的「修改声明」）
+-------------------------------------------------
+
+  bts-moment 由 Ech0 的**运行时配置**构成：一段 custom CSS 和一段 custom JS，
+  通过 Ech0 面板「系统设置 → 自定义 CSS / 自定义 JS」注入，不改动 Ech0 的
+  源码，也不重新编译。
+
+  修改类型：仅新增前端样式与客户端脚本（换肤、顶栏导航、粒子壁纸、
+  主题两态化），以及反代/服务单元的部署示例。
+
+  修改日期：2026-09-27
+
+
+许可
+----
+
+  bts-moment 自身以 **AGPL-3.0-or-later** 发布，全文见 LICENSE。
+  之所以选它而不是 MIT：本仓库是专为 Ech0 写的衍生作品，跟上游保持一致
+  最省事，也避免任何「主题要不要跟着 AGPL」的争议。
+
+  §13 的「网络交互」条款因此也适用于本仓库：任何人在服务器上跑这套主题
+  对外提供服务，都必须让使用者能拿到对应源码。README 的「合规」一节
+  写了具体做法。
+
+
+第三方组件
+----------
+
+  fonts/oswald-var.woff2
+  fonts/courier-prime-400.woff2
+  fonts/courier-prime-700.woff2
+      Oswald — Copyright 2016 The Oswald Project Authors
+                (https://github.com/googlefonts/OswaldFont)
+      Courier Prime — Copyright 2015 The Courier Prime Project Authors
+                (https://github.com/quoteunquoteapps/CourierPrime)
+      两者均为 SIL Open Font License 1.1，全文见 fonts/OFL-Oswald.txt
+      与 fonts/OFL-CourierPrime.txt。**字体本身不适用 AGPL**，只适用 OFL。
+
+  extras/bg-particle/js/particles.js
+      particles.js v2.0.0 — Vincent Garreau
+      https://github.com/VincentGarreau/particles.js
+      MIT 许可，条款见 extras/bg-particle/LICENSE-particles.js.txt
+
+  extras/bg-particle/index.html
+      页面骨架来自 SitePoint 的 particles.js 演示（作者署名仍保留在
+      <meta name="author"> 里），粒子参数由本仓库作者调整。
+
+  deploy/ 里那个 8 点转圈图标
+      EOS Icons（SUSE UX/UI team），MIT
+      https://gitlab.com/SUSE-UIUX/eos-icons
