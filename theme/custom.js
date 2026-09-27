@@ -20,14 +20,16 @@
     // 整个目录丢到任意静态站点上填这里即可。留空则完全不挂粒子。
     particleUrl: '/bg-particle/index.html',
 
-    // 顶栏六栏目。href 换成**自己站点的真实路径**；
-    // 想少放几个就直接删行，留空数组 [] 则整个顶栏不出现。
+    // 顶栏六栏目。label 和 href 是**各自独立**的 —— 「Gadgets」指到 /radio/
+    // 完全正常（这个标签本来就是个栏目名，不必等于路径）。href 换成你自己
+    // 站点的真实路径，同域写 /xxx/，跨域就写完整 URL。
+    // 想少放几个直接删行；留空数组 [] 则整个顶栏不出现。
     nav: [
       { label: 'Chat', href: '/chat/' },
       { label: 'Games', href: '/games/' },
       { label: 'Archives', href: '/archives/' },
       { label: 'Mome', href: '/' },
-      { label: 'Gadgets', href: '/gadgets/' },
+      { label: 'Gadgets', href: '/radio/' },
       { label: 'About', href: '/about/' }
     ],
 
@@ -50,7 +52,17 @@
   }
 
   function isCurrent(href, here) {
-    var p = norm(href)
+    var p
+    try {
+      var u = new URL(href, location.origin)
+      // 跨域链接永远不高亮 —— 我们无从知道对方站点当前停在哪一页。
+      // （本站的栏目大多指向外面那个博客，不排掉的话它们会靠 pathname
+      //   偶然对上，行为就成了碰运气。）
+      if (u.origin !== location.origin) return false
+      p = norm(u.pathname)
+    } catch (e) {
+      p = norm(href)
+    }
     if (p === here) return true
     // 前缀也算命中：/archives/ 在 /archives/2026/xx 下仍高亮。
     // '/' 例外 —— 它对任何路径都是前缀，只认精确匹配。

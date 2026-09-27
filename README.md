@@ -139,7 +139,7 @@ var CONFIG = {
     { label: 'Games',    href: '/games/' },
     { label: 'Archives', href: '/archives/' },
     { label: 'Mome',     href: '/' },
-    { label: 'Gadgets',  href: '/gadgets/' },
+    { label: 'Gadgets',  href: '/radio/' },
     { label: 'About',    href: '/about/' }
   ],
 
