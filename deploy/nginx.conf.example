@@ -1,138 +1,157 @@
-# ============================================================================
-# Ech0 反代 + 加载页改写层（nginx）
-# ============================================================================
-#
-# 这个文件解决的是客户端 CSS/JS 够不着的一件事：Ech0 的加载页（早期版本是
-# 一个笑脸 + "Ech0" / "静候灵感落笔"）写死在 web/index.html 里，被 //go:embed
-# 烘进了 Go 二进制；它的样式也是 index.html 里那段内联 <style>，所以第一帧
-# 画出来就是它。而 Ech0 自带的 custom_css / custom_js 要等 Vue 挂载之后才注入，
-# 改不到第一帧。只有在 HTML 出站之前动手 —— 也就是下面 sub_filter 干的事。
-#
-# 前置条件：nginx 必须编译了 http_sub_module（sub_filter 来自它）。先确认：
-#     nginx -V 2>&1 | tr ' ' '\n' | grep -i sub_module
-#   Debian/Ubuntu 官方包和 nginx:alpine 都自带；没有就得换包或自己编。
-#
-# 用法：
-#   1. 把本文件放到 /etc/nginx/sites-available/ech0
-#   2. ln -sf /etc/nginx/sites-available/ech0 /etc/nginx/sites-enabled/ech0
-#   3. nginx -t && systemctl reload nginx
-#   ⚠️ 顶部的 map 块必须在 http {} 上下文里。sites-enabled/* 就是在 http 里
-#      include 的，所以放这儿正好；要是你把它塞进 conf.d 之外的别处，注意这点。
-#   ⚠️ 顺手删掉发行版自带的默认站点（/etc/nginx/sites-enabled/default），
-#      否则它会在 :80 上抢答。
-#
-# ---------------------------------------------------------------------------
-# 占位符（全部换成你自己的值）：
-#   __DOMAIN__          站点域名，例如 example.com
-#                       多个域名/子域就空格隔开写在 server_name 一行里
-#   __LISTEN_PORT__     本层监听的端口。默认写成只绑回环（127.0.0.1:端口），
-#                       前面再挂 Cloudflare Tunnel / 别的反代 / 网关。
-#                       想直接对外：去掉地址部分写成 listen __LISTEN_PORT__;，
-#                       端口填 80 或 443。443 还要配证书和 TLS，见 NOTE 6
-#   __ECH0_UPSTREAM__   Ech0 后端地址，默认 127.0.0.1:6277
-#   __SITE_NAME__       站名。会被写进 <title> 和加载页大字里。
-#                       注意：这是插进 HTML 的，名字里有单引号要写成 &#39;（NOTE 3）
-# ---------------------------------------------------------------------------
+user  root;
+worker_processes  auto;
 
-# 导航请求（Accept 里含 text/html）强制不压缩 —— 上游一旦 gzip，sub_filter 看到
-# 的是一团压缩过的二进制，什么也替换不了；其余请求（JS/CSS/图片/API）原样透传
-# 客户端的 Accept-Encoding，别为了改写把大文件也拖成不压缩。
-#
-# NOTE 1：等价的最简写法是 proxy_set_header Accept-Encoding "";，但那会让**所有**
-#   响应都不压缩。这个 map 只对 HTML 弃用压缩，其余照旧，更划算。
-map $http_accept $upstream_ae {
-    default       $http_accept_encoding;
-    "~*text/html" "identity";
+error_log  /dev/null;
+pid        /var/run/nginx.pid;
+
+events {
+    worker_connections  1024;
 }
 
-server {
-    listen      127.0.0.1:__LISTEN_PORT__;
-    server_name __DOMAIN__;
+http {
 
-    # Ech0 允许上传媒体，nginx 默认的 1M 会把上传直接打断
-    client_max_body_size 100m;
+  map $http_user_agent $path1 {
+    default                    /;               # 默认路径
+    ~*v2rayN                   /v2rayn;         # 匹配 V2rayN 客户端
+    ~*clash                    /clash;          # 匹配 Clash 客户端
+    ~*Throne|Neko              /throne;         # 匹配 Throne / Neko 客户端
+    ~*ShadowRocket             /shadowrocket;   # 匹配 ShadowRocket 客户端
+    ~*SFM|SFI|SFA              /sing-box;       # 匹配 Sing-box 官方客户端
+#   ~*Chrome|Firefox|Mozilla   /;               # 添加更多的分流规则
+  }
+  map $http_user_agent $path2 {
+    default                    /;               # 默认路径
+    ~*v2rayN                   /v2rayn;         # 匹配 V2rayN 客户端
+    ~*clash                    /clash2;         # 匹配 Clash 客户端
+    ~*Throne|Neko              /throne;         # 匹配 Throne / Neko 客户端
+    ~*ShadowRocket             /shadowrocket;   # 匹配 ShadowRocket 客户端
+    ~*SFM|SFI|SFA              /sing-box;       # 匹配 Sing-box 官方客户端
+#   ~*Chrome|Firefox|Mozilla   /;               # 添加更多的分流规则
+  }
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
 
-    # ------------------------------------------------------------------
-    # NOTE 2（最容易踩的一条）：proxy_set_header **不跨层级合并**。
-    #   只要某个 location 里出现了任意一条 proxy_set_header，server 级别
-    #   的那一组就**整组失效**、不再继承 —— Host / X-Real-IP 全没了，上游
-    #   拿到的是错的 Host，表现得很像「sub_filter 没生效」，其实是这里。
-    #   所以下面每个 location 里都把这一组抄全，别嫌啰嗦。
-    #   反过来也别在 http / server 里设一堆再指望 location 继承。
-    # ------------------------------------------------------------------
+    log_format  main  '$remote_addr - $remote_user [$time_local] $request '
+                      '$status $body_bytes_sent $http_referer '
+                      '$http_user_agent $http_x_forwarded_for';
 
-    # ---- MCP：Streamable HTTP / SSE ----
-    # 缓冲会把流式响应堵死，必须单独关掉；超时也要放长，否则长连接会被掐。
-    location /mcp {
-        proxy_pass         http://__ECH0_UPSTREAM__;
-        proxy_http_version 1.1;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Connection        "";
+    access_log  /dev/null;
 
-        proxy_buffering    off;
-        proxy_cache        off;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    #include /etc/nginx/conf.d/*.conf;
+
+  server {
+    listen 60000 ;  # ipv4
+    listen [::]:60000 ;  # ipv6
+    server_name localhost;
+
+    # 反代 sing-box vmess websocket
+    location /YOUR-SUB-UUID-vmess {
+      if ($http_upgrade != websocket) {
+         return 404;
+      }
+      proxy_pass                          http://127.0.0.1:8884;
+      proxy_http_version                  1.1;
+      proxy_set_header Upgrade            $http_upgrade;
+      proxy_set_header Connection         upgrade;
+      proxy_set_header X-Real-IP          $remote_addr;
+      proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+      proxy_set_header Host               $host;
+      proxy_redirect                      off;
     }
 
+    # 反代 sing-box vless websocket
+    location /YOUR-SUB-UUID-vless {
+      if ($http_upgrade != websocket) {
+         return 404;
+      }
+      proxy_http_version                  1.1;
+      proxy_pass                          https://127.0.0.1:8885;
+      proxy_ssl_protocols                 TLSv1.3;
+      proxy_set_header Upgrade            $http_upgrade;
+      proxy_set_header Connection         upgrade;
+      proxy_set_header X-Real-IP          $remote_addr;
+      proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+      proxy_set_header Host               $host;
+      proxy_redirect                      off;
+    }
+
+
+    # trojan websocket
+    location /YOUR-SUB-UUID-trojan {
+      if ($http_upgrade != websocket) {
+         return 404;
+      }
+      proxy_pass                          http://127.0.0.1:8886;
+      proxy_http_version                  1.1;
+      proxy_set_header Upgrade            $http_upgrade;
+      proxy_set_header Connection         upgrade;
+      proxy_set_header X-Real-IP          $remote_addr;
+      proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+      proxy_set_header Host               $host;
+      proxy_redirect                      off;
+    }
+
+    location = /pac31.css {
+        alias /etc/sing-box/pac31.css;
+        default_type text/css;
+    }
+
+    # mome (Ech0) catch-all: any non-subscription path on this port
     location / {
-        proxy_pass         http://__ECH0_UPSTREAM__;
-        proxy_http_version 1.1;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Connection        "";
-
-        # ⚠️ 上面那行刻意写死 https，别顺手换成 $scheme：nginx 到 Ech0 这一跳
-        #   通常是明文（TLS 是前面那层隧道/网关终止的），$scheme 会报 http，
-        #   Ech0 会以为自己在 http 上 —— secure cookie 和绝对 URL 都会出问题。
-        #   只有整条链路都是明文（比如只在局域网里跑）才改成 http。
-
-        # 导航请求不压缩，sub_filter 才看得见明文（见上面 map 的 NOTE 1）
-        proxy_set_header Accept-Encoding $upstream_ae;
-
-        # sub_filter 默认就只对 text/html 生效，写出来是为了明确
+        proxy_pass http://127.0.0.1:6277;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        client_max_body_size 64m;
+        proxy_read_timeout 300s;
+        proxy_set_header Accept-Encoding "";
         sub_filter_types text/html;
-        # 每个 pattern 只替换第一处。下面三个目标串在 index.html 里都是唯一的，
-        # 用 on 更省 CPU，也免得误伤
-        sub_filter_once  on;
-
-        # 1) 加载页内容：原串是 Ech0 自带的 <h1 class="loader-brand">Ech0</h1>，
-        #    换成一个 8 点转圈（EOS Icons 的 loading，用 SMIL <animate>，必须
-        #    内联成 <svg> 才动得起来，塞进 CSS background / <img> 里不会动）
-        #    + 站名。只换这一行 —— 其余旧元素（笑脸、副标题）交给下面注入的
-        #    CSS 隐藏，不动 DOM 结构，免得踩到 Ech0 自己的逻辑。
-        sub_filter '<h1 class="loader-brand">Ech0</h1>' '<div class="ech0-loader"><div class="ech0-loader__spin"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><!-- Icon from EOS Icons by SUSE UX/UI team - https://gitlab.com/SUSE-UIUX/eos-icons/-/blob/master/LICENSE --><circle cx="12" cy="2" r="0" fill="currentColor"><animate attributeName="r" begin="0" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle><circle cx="12" cy="2" r="0" fill="currentColor" transform="rotate(45 12 12)"><animate attributeName="r" begin="0.125s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle><circle cx="12" cy="2" r="0" fill="currentColor" transform="rotate(90 12 12)"><animate attributeName="r" begin="0.25s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle><circle cx="12" cy="2" r="0" fill="currentColor" transform="rotate(135 12 12)"><animate attributeName="r" begin="0.375s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle><circle cx="12" cy="2" r="0" fill="currentColor" transform="rotate(180 12 12)"><animate attributeName="r" begin="0.5s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle><circle cx="12" cy="2" r="0" fill="currentColor" transform="rotate(225 12 12)"><animate attributeName="r" begin="0.625s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle><circle cx="12" cy="2" r="0" fill="currentColor" transform="rotate(270 12 12)"><animate attributeName="r" begin="0.75s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle><circle cx="12" cy="2" r="0" fill="currentColor" transform="rotate(315 12 12)"><animate attributeName="r" begin="0.875s" calcMode="spline" dur="1s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle></svg></div><div class="ech0-loader__brand">__SITE_NAME__</div></div>';
-
-        # 2) 加载页样式：盖掉 index.html 内联 <style> 里的底色 + 纹理，并隐藏
-        #    被替换下来的旧元素。类名统一用 ech0-loader 前缀，避开 Ech0 自己的
-        #    .loader-shell / .loader-brand / .loader-widget-smile，互不打架。
-        #    （前缀本身随便取，只要和你自己已有的自定义样式不撞就行。）
-        # NOTE 4：这段只改样式，元素本身还在 —— #app-loader 必须留着，Ech0 的
-        #   淡出逻辑（startLoaderFade）靠它找元素；把它删了加载页就永远不消失。
-        #   下面这条 background 也是「暗色第一帧」的来源：粒子壁纸是 custom_js
-        #   注入的跨域 iframe，要等 JS 跑起来才出现，第一帧只能靠这里的底色。
-        sub_filter '</head>' '<style id="ech0-loader-style">#app-loader{background:#0e0e13!important}#app-loader::before{display:none!important}#app-loader .loader-shell{display:none!important}#app-loader p{display:none!important}#app-loader .ech0-loader{display:grid;justify-items:center;gap:20px}#app-loader .ech0-loader__spin{color:#6e6eff;line-height:0;filter:drop-shadow(0 0 14px rgba(110,110,255,.5));animation:ech0-loader-in .6s ease-out both}#app-loader .ech0-loader__brand{font-family:Oswald,PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif;font-weight:600;font-size:20px;line-height:1;text-transform:uppercase;letter-spacing:.34em;text-indent:.34em;color:#f0f0f2;animation:ech0-loader-in .7s .08s ease-out both}@keyframes ech0-loader-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){#app-loader .ech0-loader__spin,#app-loader .ech0-loader__brand{animation:none}}</style></head>';
-
-        # 3) index.html 里写死的那个 "Ech0"（Vue 挂载前标签页显示的就是它）
-        sub_filter '<title>Ech0</title>' '<title>__SITE_NAME__</title>';
+        sub_filter_once on;
+        sub_filter '</head>' '<link rel="stylesheet" href="/pac31.css" /></head>';
+        sub_filter '<p>静候灵感落笔</p>' '<p>不敢高声语，恐惊天上人</p>';
+        sub_filter '</body>' '<script src="/mome-v22.js" defer></script></body>';
     }
 
-    # ------------------------------------------------------------------
-    # NOTE 3：__SITE_NAME__ 是插进 HTML 的，名字里有单引号请写 &#39;
-    #   （整条 sub_filter 参数是单引号字符串，直接写单引号会把配置截断）。
-    #
-    # NOTE 5：这里**不**托管粒子壁纸。主题的 custom_js 是把 iframe 指到你自己
-    #   的静态站上跨域加载的（src 写死在你那份 custom_js 里），不经过本反代。
-    #   如果你想把静态文件也交给这层 nginx，再加一段：
-    #       location /bg-particle/ { root /path/to/your/static; }
-    #
-    # NOTE 6：想直接在这层收 443，得自己配 ssl_certificate / ssl_certificate_key
-    #   并把上面的 listen 改成 listen 443 ssl;。通常更省事的是前面挂
-    #   Cloudflare Tunnel，或者在这一层跑 certbot。
-    # ------------------------------------------------------------------
+    location /mome-icons/ {
+        alias /etc/sing-box/mome-icons/;
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    location = /mome-emoji-map.json {
+        alias /etc/sing-box/mome-emoji-map.json;
+        default_type application/json;
+        add_header Cache-Control "no-cache";
+    }
+
+    location = /mome-v22.js {
+        alias /etc/sing-box/mome-v22.js;
+        default_type application/javascript;
+    }
+
+    # 来自 /auto2 的分流
+    location ~ ^/YOUR-SUB-UUID/auto2 {
+      default_type 'text/plain; charset=utf-8';
+      alias /etc/sing-box/subscribe/$path2;
+    }
+
+    # 来自 /auto 的分流
+    location ~ ^/YOUR-SUB-UUID/auto {
+      default_type 'text/plain; charset=utf-8';
+      alias /etc/sing-box/subscribe/$path1;
+    }
+
+    location ~ ^/YOUR-SUB-UUID/(.*) {
+      autoindex on;
+      proxy_set_header X-Real-IP $proxy_protocol_addr;
+      default_type 'text/plain; charset=utf-8';
+      alias /etc/sing-box/subscribe/$1;
+    }
+  }
+
 }
