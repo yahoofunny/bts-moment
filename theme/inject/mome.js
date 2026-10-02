@@ -594,6 +594,7 @@
     var cta = document.querySelector('textarea[placeholder*="吐"], textarea[placeholder*="moment"], textarea[placeholder*="想法"]');
     if (!cta) return;
     var cr = cta.getBoundingClientRect();
+    document.querySelectorAll(".mome-palette-btn").forEach(function (b) { b.remove(); });
     // 找发布框正下方的工具栏行：行内（不限直接子级）有 >=3 个按钮/链接，取最靠下的一行
     var rows = document.querySelectorAll('div');
     var toolbar = null, bestTop = Infinity;
@@ -609,7 +610,7 @@
     }
     if (!toolbar) return;
     // 挂错位置的旧按钮一律删除
-    document.querySelectorAll('[aria-label="调色盘"]').forEach(function (b) {
+    document.querySelectorAll('[aria-label="调色盘"], .mome-palette-btn').forEach(function (b) {
       if (!toolbar.contains(b)) b.remove();
     });
     if (toolbar.querySelector('[aria-label="调色盘"]')) return;
