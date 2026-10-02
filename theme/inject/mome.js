@@ -594,26 +594,26 @@
     var cta = document.querySelector('textarea[placeholder*="吐"], textarea[placeholder*="moment"], textarea[placeholder*="想法"]');
     if (!cta) return;
     var cr = cta.getBoundingClientRect();
-    // 找发布框正下方第一排 >=3 个并排按钮的行（粒子/附件/标签/＋）
+    // 找发布框正下方的工具栏行：行内（不限直接子级）有 >=3 个按钮/链接，取最靠下的一行
     var rows = document.querySelectorAll('div');
     var toolbar = null, bestTop = Infinity;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var bs = r.querySelectorAll(':scope > button');
-      if (bs.length < 2) continue;
+      var bs = r.querySelectorAll('button, a, [role="button"]');
+      if (bs.length < 3) continue;
       var rr = r.getBoundingClientRect();
-      if (rr.width < 120 || rr.height < 30 || rr.height > 90) continue;
-      if (rr.top < cr.bottom - 12) continue;
+      if (rr.width < 120 || rr.height < 28 || rr.height > 100) continue;
+      if (rr.top < cr.bottom - 14) continue;
       if (rr.top > cr.bottom + 320) continue;
       if (rr.top < bestTop) { bestTop = rr.top; toolbar = r; }
     }
     if (!toolbar) return;
-    // 删掉挂错位置的旧按钮（不在目标行里的）
+    // 挂错位置的旧按钮一律删除
     document.querySelectorAll('[aria-label="调色盘"]').forEach(function (b) {
       if (!toolbar.contains(b)) b.remove();
     });
     if (toolbar.querySelector('[aria-label="调色盘"]')) return;
-    var ref = toolbar.querySelector('button:last-of-type');
+    var ref = toolbar.querySelector('button:last-of-type, a:last-of-type');
     var b2 = document.createElement('button');
     b2.type = 'button';
     b2.className = ref ? ref.className : '';
